@@ -11,7 +11,7 @@ const PORT = process.env.PORT || 12000
 connectToMongo().
 then(()=> {
     app.listen(PORT ,() => {
-    console.log(`Server Is  Running On PORT http://localhost:${PORT}`);
+    console.log(`Server Is Running On PORT http://localhost:${PORT}`);
     })
 })
 .catch((err)=>{
