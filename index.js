@@ -8,8 +8,14 @@ dotenv.config({
 
 const PORT = process.env.PORT || 12000
 
-app.listen(PORT ,() => {
-    console.log(`Server Running On PORT http://localhost:${PORT}`);
-});
+connectToMongo().
+then(()=> {
+    app.listen(PORT ,() => {
+    console.log(`Server Is  Running On PORT http://localhost:${PORT}`);
+    })
+})
+.catch((err)=>{
+    console.log("MonogoDb Connection Error !! ", err)
+})
 
-connectToMongo();
+
