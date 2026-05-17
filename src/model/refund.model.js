@@ -43,10 +43,6 @@ const refundSchema = new mongoose.Schema({
         ]
     },
 
-    adminComment: {
-        type: String
-    }
-
 }, { timestamps: true });
 
 export const Refund = mongoose.model("Refund", refundSchema);
