@@ -27,6 +27,7 @@ const userSchema = new Schema({
         type: String
     },
     role: {
+        type: String,
         enum: ['Admin', 'Customer'],
         default: "Customer"
     },
@@ -46,7 +47,7 @@ const userSchema = new Schema({
 userSchema.pre("save", async function() {
     if(!this.isModified("password")) return;
 
-    const salt = bcrypt.genSalt(10);
+    const salt = await bcrypt.genSalt(10);
     this.password = await bcrypt.hash(this.password, salt);
 })
 
@@ -57,11 +58,11 @@ userSchema.methods.isPasswordCorrect = async function(password) {
 userSchema.methods.generateAccessToken = function() {
     return jwt.sign(
         {
-            email = this.email,
-            _id = this._id,
-            mobileNo = this.mobileNo,
-            fullname = this.fullname,
-            role = this.role
+            email: this.email,
+            _id: this._id,
+            mobileNo: this.mobileNo,
+            fullname: this.fullname,
+            role: this.role
         },
             process.env.ACCESS_TOKEN_SECRET,
         {
@@ -72,11 +73,11 @@ userSchema.methods.generateAccessToken = function() {
 userSchema.methods.generateRefreshToken = function() {
     return jwt.sign(
         {
-            email = this.email,
-            _id = this._id,
-            mobileNo = this.mobileNo,
-            fullname = this.fullname,
-            role = this.role
+           email: this.email,
+            _id: this._id,
+            mobileNo: this.mobileNo,
+            fullname: this.fullname,
+            role: this.role
         },
             process.env.REFRESH_TOKEN_SECRET,
         {
