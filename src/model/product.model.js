@@ -10,6 +10,10 @@ const productSchema = new Schema({
         type: String,
         required: true
     },
+    size: {
+        type: String,
+        required: true
+    },
     price: {
         type: Number,
         required: true,
@@ -26,6 +30,7 @@ const productSchema = new Schema({
     },
     tags: [{
         type: String,
+        index: true
     }],
     shippingCost: {
         type: Number,
