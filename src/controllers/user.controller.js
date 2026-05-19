@@ -3,7 +3,7 @@ import { User } from "../model/user.model.js";
 import {uploadOnCloudinary} from "../config/cloudinary.js"
 import { ApiError } from "../utils/ApiError.js";
 import { ApiResponse } from "../utils/ApiResponse.js"
-import {asyncHandler} from "../utils/ayncHandler.js"
+import {asyncHandler} from "../utils/asyncHandler.js"
 
 
 const generateAccessAndRefreshToken = async (userId) => {
@@ -143,7 +143,35 @@ const loginUser = asyncHandler(async (req, res) => {
         );
 });
 
+const logoutUser = asyncHandler(async (req, res) => {
+    await User.findByIdAndUpdate(
+        req.user._id,
+        {
+            $unset: {
+                refreshToken: 1
+            }
+        },
+        {
+            new: true
+        }
+    );
+
+    const options = {
+        httpOnly: true,
+        secure: true
+    };
+
+    return res
+        .status(200)
+        .clearCookie("accessToken", options)
+        .clearCookie("refreshToken", options)
+        .json(
+            new ApiResponse(200, {}, "User Logged Out Successfully")
+        );
+});
+
 export {
     registerUser,
-    loginUser
+    loginUser,
+    logoutUser
 }
