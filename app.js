@@ -10,12 +10,19 @@ app.get('/', (req, res) => {
 
 app.use(cors({
     origin: process.env.CORS_ORIGIN,
-    Credential: true
+    credentials: true
 }))
 
 app.use(cookieParser())
 app.use(express.json())
 app.use(express.urlencoded({extended: true, limit: "16kb"}))
 app.use(express.static("public"))
+
+// import 
+import userRouter from "./src/routes/user.routes.js";
+
+//router declaration
+
+app.use("/api/auth/users", userRouter);
 
 export default app;

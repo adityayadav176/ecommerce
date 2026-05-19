@@ -3,7 +3,7 @@ import bcrypt from "bcrypt";
 import jwt from "jsonwebtoken";
 
 const userSchema = new Schema({
-    name: {
+    fullName: {
         type: String,
         required: true,
         trim: true
@@ -23,7 +23,7 @@ const userSchema = new Schema({
         type: String,
         required: true
     },
-    profilePic: {
+    avatar: {
         type: String
     },
     role: {
