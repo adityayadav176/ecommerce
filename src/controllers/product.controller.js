@@ -111,7 +111,7 @@ const deleteProduct = asyncHandler(async (req, res) => {
     }
 
     // DELETE ALL IMAGES FROM CLOUDINARY
-    if(existedProduct.images && existedProduct.images.length > 0) {
+    if (existedProduct.images && existedProduct.images.length > 0) {
         for (const img of existedProduct.images) {
             await cloudinary.uploader.destroy(img.public_id);
         }
@@ -127,26 +127,26 @@ const deleteProduct = asyncHandler(async (req, res) => {
 const getProductById = asyncHandler(async (req, res) => {
     const userId = req.user._id
 
-    if(!userId) {
+    if (!userId) {
         throw new ApiError(401, "Unauthorized Access Denied!");
     }
     const productId = req.params.productId
 
-    if(!productId || !mongoose.isValidObjectId(productId)) {
+    if (!productId || !mongoose.isValidObjectId(productId)) {
         throw new ApiError(400, "Invalid Product Id");
     }
 
-    const product = await Product.findById(productId);
+    const product = await Product.findById(productId).sort({ createdAt: -1 });
 
-    if(!product) {
+    if (!product) {
         throw new ApiError(404, "Not Found");
     }
 
     return res
-    .status(200)
-    .json(
-        new ApiResponse(200, product, "Product Fetched Successfully")
-    );
+        .status(200)
+        .json(
+            new ApiResponse(200, product, "Product Fetched Successfully")
+        );
 });
 
 const getAllProduct = asyncHandler(async (req, res) => {
@@ -156,7 +156,7 @@ const getAllProduct = asyncHandler(async (req, res) => {
         status: { $ne: "DISCONTINUED" }
     };
 
-    const products = await Product.find(filter);
+    const products = await Product.find(filter).sort({ createdAt: -1 });
 
     const totalProducts = await Product.countDocuments(filter);
 
@@ -172,9 +172,42 @@ const getAllProduct = asyncHandler(async (req, res) => {
     );
 });
 
+const getAllMyProducts = asyncHandler(async (req, res) => {
+
+    const userId = req.user?._id;
+
+    if (!userId) {
+        throw new ApiError(401, "Unauthorized Access Denied!");
+    }
+
+    const filter = {
+        isPublished: true,
+        status: { $ne: "DISCONTINUED" },
+        createdBy: new mongoose.Types.ObjectId(userId)
+    };
+
+    const products = await Product.find(filter)
+        .sort({ createdAt: -1 })
+        .lean();
+
+    const totalProducts = await Product.countDocuments(filter);
+
+    return res.status(200).json(
+        new ApiResponse(
+            200,
+            {
+                totalProducts,
+                products
+            },
+            "Fetched All User Products Successfully"
+        )
+    );
+});
+
 export {
     AddProduct,
     deleteProduct,
     getProductById,
-    getAllProduct
+    getAllProduct,
+    getAllMyProducts
 }
