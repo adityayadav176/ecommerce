@@ -181,8 +181,6 @@ const getAllMyProducts = asyncHandler(async (req, res) => {
     }
 
     const filter = {
-        isPublished: true,
-        status: { $ne: "DISCONTINUED" },
         createdBy: new mongoose.Types.ObjectId(userId)
     };
 
