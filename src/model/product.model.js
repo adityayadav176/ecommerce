@@ -56,10 +56,16 @@ const productSchema = new Schema({
         required: true,
         trim: true,
     },
-    images: [
+    images:[
         {
-            type: String,
-            required: true,
+            url: {
+                type: String,
+                required: true
+            },
+            public_id: {
+                type: String,
+                required: true
+            }
         }
     ],
     createdBy: {
@@ -88,11 +94,11 @@ const productSchema = new Schema({
         default: true
     },
     reviews: [
-   {
-      type: Schema.Types.ObjectId,
-      ref: "Review"
-   }
-]
-},{timestamps: true})
+        {
+            type: Schema.Types.ObjectId,
+            ref: "Review"
+        }
+    ]
+}, { timestamps: true })
 
 export const Product = mongoose.model("Product", productSchema);

@@ -1,9 +1,10 @@
-import {Product} from  "../model/product.model.js"
+import { Product } from "../model/product.model.js"
 import { asyncHandler } from "../utils/asyncHandler.js"
 import { ApiError } from "../utils/ApiError.js"
 import { ApiResponse } from "../utils/ApiResponse.js"
 import { uploadOnCloudinary } from "../config/cloudinary.js"
 import mongoose, { mongo } from "mongoose"
+import cloudinary from "cloudinary"
 
 const AddProduct = asyncHandler(async (req, res) => {
 
@@ -20,41 +21,44 @@ const AddProduct = asyncHandler(async (req, res) => {
 
 
     const userId = req.user._id
-    if(!userId || !mongoose.isValidObjectId(userId)) {
+    if (!userId || !mongoose.isValidObjectId(userId)) {
         throw new ApiError(401, "Unauthorized Access");
     }
 
-    const {title, description,  size, price, stock, tags, category, brand, shippingCost, discountPrice, status} = req.body
+    const { title, description, size, price, stock, tags, category, brand, shippingCost, discountPrice, status } = req.body
 
-    if(!title || !description || !price || !stock || !tags || !category || !brand) {
+    if (!title || !description || !price || !stock || !tags || !category || !brand) {
         throw new ApiError(400, "ALL Fields Are Required!");
     }
     // images validation
     const imageFiles = req.files?.images;
 
-    if(!imageFiles || imageFiles.length === 0) {
+    if (!imageFiles || imageFiles.length === 0) {
         throw new ApiError(400, "Product Images Are Required");
     }
 
     // upload multiple files
     const imageUrls = [];
 
-    for(const file of imageFiles) {
+    for (const file of imageFiles) {
         const uploadedImage = await uploadOnCloudinary(file.path);
 
-        if(!uploadedImage?.url) {
+        if (!uploadedImage?.url) {
             throw new ApiError(500, "Error while Uploading images!");
         }
 
-        imageUrls.push(uploadedImage.url)
+        imageUrls.push({
+            url: uploadedImage.secure_url,
+            public_id: uploadedImage.public_id
+        });
     }
 
-     const stockNumber = Number(stock);
+    const stockNumber = Number(stock);
 
     const tagsArray = tags ? tags.split(",").map(tag => tag.trim()) : [];
     const sizeArray = size ? size.split(",").map(s => s.trim()) : [];
 
-    if(isNaN(price) || isNaN(stock)) {
+    if (isNaN(price) || isNaN(stock)) {
         throw new ApiError(400, "Prices and Stock must be A Numbers")
     }
 
@@ -74,30 +78,30 @@ const AddProduct = asyncHandler(async (req, res) => {
         createdBy: req.user._id
     })
 
-    if(!product) {
+    if (!product) {
         throw new ApiError(500, "Something Went Wrong While Creating A Product!");
     }
 
     const createdProduct = await Product.findById(product._id).select("-__v")
 
     return res
-    .status(201)
-    .json(
-        new ApiResponse(201, createdProduct, "Product Created Successfully")
-    )
+        .status(201)
+        .json(
+            new ApiResponse(201, createdProduct, "Product Created Successfully")
+        )
 
 })
 
 const deleteProduct = asyncHandler(async (req, res) => {
     const productId = req.params?.productId;
 
-    if(!productId || !mongoose.isValidObjectId(productId)) {
+    if (!productId || !mongoose.isValidObjectId(productId)) {
         throw new ApiError(400, "Invalid Product Id");
     }
 
     const existedProduct = await Product.findById(productId)
 
-    if(!existedProduct) {
+    if (!existedProduct) {
         throw new ApiError(400, "Product Not Found");
     }
 
@@ -106,23 +110,20 @@ const deleteProduct = asyncHandler(async (req, res) => {
         throw new ApiError(401, "Unauthorized Access Denied!");
     }
 
+    // DELETE ALL IMAGES FROM CLOUDINARY
+    if(existedProduct.images && existedProduct.images.length > 0) {
+        for (const img of existedProduct.images) {
+            await cloudinary.uploader.destroy(img.public_id);
+        }
+    }
+
     await Product.findByIdAndDelete(productId);
 
     return res.status(200).json(
-        new ApiResponse(200, "Product Deleted Successfully")
+        new ApiResponse(200, {}, "Product Deleted Successfully")
     );
 });
 
-// const getAllProduct = asyncHandler(async (req, res) => {
-
-//     // fetched user from 
-//     const userId = req.user._id 
-//     if(!userid || !mongoose.isValidObjectId(userid)) {
-//         throw new ApiError(401, "Unauthorized Access Denied!");
-//     }
-
-//     Product.find
-// })
 
 export {
     AddProduct,
