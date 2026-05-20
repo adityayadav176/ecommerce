@@ -8,25 +8,29 @@ const productSchema = new Schema({
     },
     description: {
         type: String,
-        required: true
+        required: true,
+        trim: true
     },
-    size: {
-        type: String,
-        required: true
-    },
+    size: [
+        {
+            type: String,
+        },
+    ],
     price: {
         type: Number,
         required: true,
-        min: 0
+        min: 0,
     },
     stock: {
-        type: String,
+        type: Number,
         required: true,
-        default: 0
+        default: 1,
+        min: 0,
     },
     sold: {
         type: Number,
-        default: 0
+        default: 0,
+        min: 0,
     },
     tags: [{
         type: String,
@@ -34,24 +38,28 @@ const productSchema = new Schema({
     }],
     shippingCost: {
         type: Number,
-        default: 0
+        default: 0,
+        min: 0,
     },
     status: {
         type: String,
         enum: ["ACTIVE", "OUT_OF_STOCK", "DISCONTINUED"],
-        default: true
+        default: "ACTIVE"
     },
     category: {
         type: String,
-        required: true
+        required: true,
+        trim: true,
     },
     brand: {
         type: String,
-        required: true
+        required: true,
+        trim: true,
     },
     images: [
         {
             type: String,
+            required: true,
         }
     ],
     createdBy: {
@@ -59,17 +67,21 @@ const productSchema = new Schema({
         ref: "User",
         required: true
     },
-    numOfReview: {
+    numOfReviews: {
         type: Number,
-        default: 0
+        default: 0,
+        min: 0,
     },
     discountPrice: {
-        type: String,
-        required: true
+        type: Number,
+        required: true,
+        default: 0
     },
     rating: {
         type: Number,
-        default: 0
+        default: 0,
+        min: 0,
+        max: 5,
     },
     isPublished: {
         type: Boolean,

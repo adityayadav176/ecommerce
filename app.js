@@ -20,9 +20,11 @@ app.use(express.static("public"))
 
 // import 
 import userRouter from "./src/routes/user.routes.js";
+import productRouter from "./src/routes/product.routes.js"
 
 //router declaration
 
 app.use("/api/auth/users", userRouter);
+app.use("/api/products/product", productRouter);
 
 export default app;
