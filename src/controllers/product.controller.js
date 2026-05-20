@@ -3,6 +3,7 @@ import { asyncHandler } from "../utils/asyncHandler.js"
 import { ApiError } from "../utils/ApiError.js"
 import { ApiResponse } from "../utils/ApiResponse.js"
 import { uploadOnCloudinary } from "../config/cloudinary.js"
+import mongoose from "mongoose"
 
 const AddProduct = asyncHandler(async (req, res) => {
 
@@ -16,6 +17,12 @@ const AddProduct = asyncHandler(async (req, res) => {
     // if error when creating a object then give error
     // fetched created product 
     // return res.json product and msg
+
+
+    const userId = req.user._id
+    if(!userId || !mongoose.isValidObjectId(userId)) {
+        throw new ApiError(401, "Unauthorized Access");
+    }
 
     const {title, description,  size, price, stock, tags, category, brand, shippingCost, discountPrice, status} = req.body
 
@@ -47,12 +54,16 @@ const AddProduct = asyncHandler(async (req, res) => {
     const tagsArray = tags ? tags.split(",").map(tag => tag.trim()) : [];
     const sizeArray = size ? size.split(",").map(s => s.trim()) : [];
 
+    if(isNaN(price) || isNaN(stock)) {
+        throw new ApiError(400, "Prices and Stock must be A Numbers")
+    }
+
     const product = await Product.create({
         title,
         description,
         tags: tagsArray,
         size: sizeArray,
-        status: stock === 0 ? "OUT_OF_STOCK" : "ACTIVE",
+        status: stockNumber === 0 ? "OUT_OF_STOCK" : "ACTIVE",
         images: imageUrls,
         price: Number(price),
         stock: stockNumber,
@@ -76,6 +87,7 @@ const AddProduct = asyncHandler(async (req, res) => {
     )
 
 })
+
 
 export {
     AddProduct,
