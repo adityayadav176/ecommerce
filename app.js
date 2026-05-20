@@ -25,6 +25,6 @@ import productRouter from "./src/routes/product.routes.js";
 //router declaration
 
 app.use("/api/auth/users", userRouter);
-app.use("/api/products/product", productRouter);
+app.use("/api/products", productRouter);
 
 export default app;

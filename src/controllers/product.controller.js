@@ -3,7 +3,7 @@ import { asyncHandler } from "../utils/asyncHandler.js"
 import { ApiError } from "../utils/ApiError.js"
 import { ApiResponse } from "../utils/ApiResponse.js"
 import { uploadOnCloudinary } from "../config/cloudinary.js"
-import mongoose from "mongoose"
+import mongoose, { mongo } from "mongoose"
 
 const AddProduct = asyncHandler(async (req, res) => {
 
@@ -88,7 +88,43 @@ const AddProduct = asyncHandler(async (req, res) => {
 
 })
 
+const deleteProduct = asyncHandler(async (req, res) => {
+    const productId = req.params?.productId;
+
+    if(!productId || !mongoose.isValidObjectId(productId)) {
+        throw new ApiError(400, "Invalid Product Id");
+    }
+
+    const existedProduct = await Product.findById(productId)
+
+    if(!existedProduct) {
+        throw new ApiError(400, "Product Not Found");
+    }
+
+    const userId = req.user?._id
+    if (!userId) {
+        throw new ApiError(401, "Unauthorized Access Denied!");
+    }
+
+    await Product.findByIdAndDelete(productId);
+
+    return res.status(200).json(
+        new ApiResponse(200, "Product Deleted Successfully")
+    );
+});
+
+// const getAllProduct = asyncHandler(async (req, res) => {
+
+//     // fetched user from 
+//     const userId = req.user._id 
+//     if(!userid || !mongoose.isValidObjectId(userid)) {
+//         throw new ApiError(401, "Unauthorized Access Denied!");
+//     }
+
+//     Product.find
+// })
 
 export {
     AddProduct,
+    deleteProduct
 }
