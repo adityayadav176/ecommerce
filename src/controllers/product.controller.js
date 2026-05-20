@@ -149,8 +149,32 @@ const getProductById = asyncHandler(async (req, res) => {
     );
 });
 
+const getAllProduct = asyncHandler(async (req, res) => {
+
+    const filter = {
+        isPublished: true,
+        status: { $ne: "DISCONTINUED" }
+    };
+
+    const products = await Product.find(filter);
+
+    const totalProducts = await Product.countDocuments(filter);
+
+    return res.status(200).json(
+        new ApiResponse(
+            200,
+            {
+                totalProducts,
+                products
+            },
+            "Fetched All Products Successfully"
+        )
+    );
+});
+
 export {
     AddProduct,
     deleteProduct,
-    getProductById
+    getProductById,
+    getAllProduct
 }
