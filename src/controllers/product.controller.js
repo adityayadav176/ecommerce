@@ -124,8 +124,33 @@ const deleteProduct = asyncHandler(async (req, res) => {
     );
 });
 
+const getProductById = asyncHandler(async (req, res) => {
+    const userId = req.user._id
+
+    if(!userId) {
+        throw new ApiError(401, "Unauthorized Access Denied!");
+    }
+    const productId = req.params.productId
+
+    if(!productId || !mongoose.isValidObjectId(productId)) {
+        throw new ApiError(400, "Invalid Product Id");
+    }
+
+    const product = await Product.findById(productId);
+
+    if(!product) {
+        throw new ApiError(404, "Not Found");
+    }
+
+    return res
+    .status(200)
+    .json(
+        new ApiResponse(200, product, "Product Fetched Successfully")
+    );
+});
 
 export {
     AddProduct,
-    deleteProduct
+    deleteProduct,
+    getProductById
 }
