@@ -125,6 +125,106 @@ const deleteProduct = asyncHandler(async (req, res) => {
     );
 });
 
+const updateProductDetails = asyncHandler(async (req, res) => {
+
+    const userId = req.user._id
+
+    if(!userId) {
+        throw new ApiError(401, "Unauthorized Access Denied");
+    }
+
+    const {productId} = req.params
+
+    if(!productId || !mongoose.isValidObjectId(productId)) {
+        throw new ApiError(400, "Invalid ProductId");
+    }
+
+    const {title, description, size, price, tags, category, brand} = req.body
+
+    if( title === undefined && description === undefined && size === undefined && price === undefined && tags === undefined &&  category === undefined && brand === undefined) {
+        throw new ApiError(400, "At Least One Field Is Required For Update");
+    }
+
+    const existedProduct = await Product.findById(productId);
+
+    if(!existedProduct) {
+        throw new ApiError(404, "Product Not Found");
+    }
+
+     // ownership check
+    if (existedProduct.createdBy.toString() !== userId.toString()) {
+        throw new ApiError( 403, "You Can Update Only Your Product" );
+    }
+
+    if (title !== undefined) { 
+        if ( typeof title !== "string" ||  title.trim().length < 3) {
+            throw new ApiError(400, "Title Must Be At Least 3 Characters" );
+        }
+        existedProduct.title = title.trim();
+    }
+
+    if (description !== undefined) {
+        if (typeof description !== "string" || description.trim().length < 10 ) {
+            throw new ApiError( 400, "Description Must Be At Least 10 Characters" );
+        }
+        existedProduct.description = description.trim();
+    }
+
+      if (size !== undefined) {
+        if (!Array.isArray(size)) {
+             throw new ApiError( 400, "Size Must Be An Array" );
+        }
+
+        if (size.length === 0) {
+             throw new ApiError( 400, "At Least One Size Is Required" );
+        }
+        existedProduct.size = size;
+    }
+
+     if (price !== undefined) {
+        if ( typeof price !== "number" || price <= 0 ) {
+            throw new ApiError( 400, "Price Must Be Greater Than 0" );
+        }
+           existedProduct.price = price;
+    }
+
+      if (tags !== undefined) {
+        if (!Array.isArray(tags)) {
+             throw new ApiError( 400, "Tags Must Be An Array" );
+        }
+        existedProduct.tags = tags;
+    }
+
+    if (category !== undefined) {
+        if ( typeof category !== "string" || category.trim().length < 2 ) {
+            throw new ApiError( 400, "Valid Category Is Required" );
+        }
+        existedProduct.category = category.trim().toLowerCase();
+    }
+
+     if (brand !== undefined) {
+        if (typeof brand !== "string" || brand.trim().length < 2 ) {
+            throw new ApiError( 400, "Valid Brand Is Required" );
+        }
+        existedProduct.brand = brand.trim().toLowerCase();
+    }
+
+    const shipping = existedProduct.shippingCost || 0;
+    const discount = existedProduct.discountPrice || 0;
+
+    existedProduct.finalPrice = existedProduct.price - discount + shipping;
+
+     if (existedProduct.finalPrice < 0) {
+        throw new ApiError( 400, "FinalPrice Cannot Be Negative" );
+    }
+
+    await existedProduct.save();
+
+     return res.status(200).json(
+        new ApiResponse( 200, existedProduct, "Product Updated Successfully" )
+    );
+})
+
 const getProductById = asyncHandler(async (req, res) => {
     const userId = req.user._id
 
@@ -586,105 +686,7 @@ const SoldAProduct = asyncHandler(async (req, res) => {
 
 })
 
-const updateProductDetails = asyncHandler(async (req, res) => {
 
-    const userId = req.user._id
-
-    if(!userId) {
-        throw new ApiError(401, "Unauthorized Access Denied");
-    }
-
-    const {productId} = req.params
-
-    if(!productId || !mongoose.isValidObjectId(productId)) {
-        throw new ApiError(400, "Invalid ProductId");
-    }
-
-    const {title, description, size, price, tags, category, brand} = req.body
-
-    if( title === undefined && description === undefined && size === undefined && price === undefined && tags === undefined &&  category === undefined && brand === undefined) {
-        throw new ApiError(400, "At Least One Field Is Required For Update");
-    }
-
-    const existedProduct = await Product.findById(productId);
-
-    if(!existedProduct) {
-        throw new ApiError(404, "Product Not Found");
-    }
-
-     // ownership check
-    if (existedProduct.createdBy.toString() !== userId.toString()) {
-        throw new ApiError( 403, "You Can Update Only Your Product" );
-    }
-
-    if (title !== undefined) { 
-        if ( typeof title !== "string" ||  title.trim().length < 3) {
-            throw new ApiError(400, "Title Must Be At Least 3 Characters" );
-        }
-        existedProduct.title = title.trim();
-    }
-
-    if (description !== undefined) {
-        if (typeof description !== "string" || description.trim().length < 10 ) {
-            throw new ApiError( 400, "Description Must Be At Least 10 Characters" );
-        }
-        existedProduct.description = description.trim();
-    }
-
-      if (size !== undefined) {
-        if (!Array.isArray(size)) {
-             throw new ApiError( 400, "Size Must Be An Array" );
-        }
-
-        if (size.length === 0) {
-             throw new ApiError( 400, "At Least One Size Is Required" );
-        }
-        existedProduct.size = size;
-    }
-
-     if (price !== undefined) {
-        if ( typeof price !== "number" || price <= 0 ) {
-            throw new ApiError( 400, "Price Must Be Greater Than 0" );
-        }
-           existedProduct.price = price;
-    }
-
-      if (tags !== undefined) {
-        if (!Array.isArray(tags)) {
-             throw new ApiError( 400, "Tags Must Be An Array" );
-        }
-        existedProduct.tags = tags;
-    }
-
-    if (category !== undefined) {
-        if ( typeof category !== "string" || category.trim().length < 2 ) {
-            throw new ApiError( 400, "Valid Category Is Required" );
-        }
-        existedProduct.category = category.trim().toLowerCase();
-    }
-
-     if (brand !== undefined) {
-        if (typeof brand !== "string" || brand.trim().length < 2 ) {
-            throw new ApiError( 400, "Valid Brand Is Required" );
-        }
-        existedProduct.brand = brand.trim().toLowerCase();
-    }
-
-    const shipping = existedProduct.shippingCost || 0;
-    const discount = existedProduct.discountPrice || 0;
-
-    existedProduct.finalPrice = existedProduct.price - discount + shipping;
-
-     if (existedProduct.finalPrice < 0) {
-        throw new ApiError( 400, "FinalPrice Cannot Be Negative" );
-    }
-
-    await existedProduct.save();
-
-     return res.status(200).json(
-        new ApiResponse( 200, existedProduct, "Product Updated Successfully" )
-    );
-})
 
 export {
     AddProduct,
