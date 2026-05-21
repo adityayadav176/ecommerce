@@ -390,6 +390,52 @@ const changeProductStatus = asyncHandler(async (req, res) => {
     )
 })
 
+const toggleIsPublished = asyncHandler(async (req, res) => {
+    const userId = req.user?._id
+
+    if(!userId) {
+        throw new ApiError(401, "Unauthorized Access Denied!");
+    }
+
+    const {productId} = req.params
+
+    if(!productId || !mongoose.isValidObjectId(productId)) {
+        throw new ApiError(400, "Invalid Product Id");
+    }
+
+    const existedProduct = await Product.findById(productId);
+
+    if(!existedProduct) {
+        throw new ApiError(404, "Product Not Found");
+    }
+
+    if (existedProduct.createdBy.toString() !== userId.toString()) {
+        throw new ApiError(403, "You Are Not Allowed To Perform This Task");
+    }
+
+    const updatedProduct = await Product.findByIdAndUpdate(
+        productId,
+        {
+            $set: {
+                isPublished: !existedProduct.isPublished
+            },
+        },
+        {
+            new: true
+        }
+    )
+
+    if(!updatedProduct) {
+        throw new ApiError(500, "Something Went Wrong While Updating Product PublishedStatus");
+    }
+
+    return res
+    .status(200)
+    .json(
+        new ApiResponse(200, updatedProduct, `Product Is Now ${updatedProduct.isPublished === true ? "isPublished" : "UnPublished"}`)
+    )
+})
+
 export {
     AddProduct,
     deleteProduct,
@@ -397,5 +443,6 @@ export {
     getAllProduct,
     getAllMyProducts,
     AddSippingCost,
+    toggleIsPublished,
     changeProductStatus,
 }

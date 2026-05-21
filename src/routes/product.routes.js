@@ -1,6 +1,6 @@
 import { Router } from "express";
 import { upload } from "../middleware/multer.middleware.js";
-import { AddProduct, AddSippingCost, changeProductStatus, deleteProduct, getAllMyProducts, getAllProduct, getProductById} from "../controllers/product.controller.js";
+import { AddProduct, AddSippingCost, changeProductStatus, deleteProduct, getAllMyProducts, getAllProduct, getProductById, toggleIsPublished} from "../controllers/product.controller.js";
 import { verifyJwt } from "../middleware/auth.middleware.js";
 
 const router = Router();
@@ -22,4 +22,5 @@ router.route("/getAllProduct").get(getAllProduct);
 router.route("/my-products").get(verifyJwt, getAllMyProducts);
 router.route("/updateShippingCost/:productId").patch(verifyJwt, AddSippingCost);
 router.route("/updateStatus/:productId").patch(verifyJwt, changeProductStatus);
+router.route("/toggleIsPublished/:productId").patch(verifyJwt, toggleIsPublished);
 export default router;
