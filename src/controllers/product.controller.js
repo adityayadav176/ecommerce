@@ -25,7 +25,7 @@ const AddProduct = asyncHandler(async (req, res) => {
         throw new ApiError(401, "Unauthorized Access");
     }
 
-    const { title, description, size, price, stock, tags, category, brand, shippingCost, discountPrice, status } = req.body
+    const { title, description, size, price, stock, tags, category, brand, shippingCost, discountPrice, status, finalPrice } = req.body
 
     if (!title || !description || !price || !stock || !tags || !category || !brand) {
         throw new ApiError(400, "ALL Fields Are Required!");
@@ -64,6 +64,7 @@ const AddProduct = asyncHandler(async (req, res) => {
 
     const product = await Product.create({
         title,
+        finalPrice: price,
         description,
         tags: tagsArray,
         size: sizeArray,
@@ -275,60 +276,102 @@ const getAllMyProducts = asyncHandler(async (req, res) => {
 
 const AddSippingCost = asyncHandler(async (req, res) => {
 
-    //wrong controller logic
-    const { shippingCost } = req.body
+    // fetch shipping cost
+    const { shippingCost } = req.body;
 
-    if (shippingCost === undefined || !shippingCost) {
-        throw new ApiError(400, "Shipping Cost Is Required!");
+    // validate shipping cost
+    if (
+        shippingCost === undefined ||
+        typeof shippingCost !== "number" ||
+        shippingCost < 0
+    ) {
+        throw new ApiError(
+            400,
+            "Valid ShippingCost Is Required"
+        );
     }
 
-    const userId = req.user?._id
+    // fetch user id
+    const userId = req.user?._id;
 
+    // validate user
     if (!userId) {
-        throw new ApiError(401, "Unauthorized Access Denied!");
+        throw new ApiError(
+            401,
+            "Unauthorized Access Denied!"
+        );
     }
 
+    // fetch product id
     const { productId } = req.params;
 
-    if (!productId || !mongoose.isValidObjectId(productId)) {
-        throw new ApiError(400, "Invalid ProductId");
+    // validate product id
+    if (
+        !productId ||
+        !mongoose.isValidObjectId(productId)
+    ) {
+        throw new ApiError(
+            400,
+            "Invalid ProductId"
+        );
     }
 
+    // find product
     const existedProduct = await Product.findById(productId);
 
+    // validate product
     if (!existedProduct) {
-        throw new ApiError(404, "Product Not Exists!");
+        throw new ApiError(
+            404,
+            "Product Not Exists!"
+        );
     }
 
-    if (existedProduct.createdBy.toString() !== userId.toString()) {
-        throw new ApiError(403, "You Can Update Only Your Product");
+    // ownership check
+    if (
+        existedProduct.createdBy.toString() !==
+        userId.toString()
+    ) {
+        throw new ApiError(
+            403,
+            "You Can Update Only Your Product"
+        );
     }
 
-    const finalPrice = existedProduct.price + shippingCost;
+    // existing discount
+    const discount =
+        existedProduct.discountPrice || 0;
 
-    const updatedShippingCost = await Product.findByIdAndUpdate(
-        productId,
-        {
-            $set: {
-                shippingCost,
-                price: finalPrice
-            },
-        },
-        {
-            new: true,
-        }
-    );
+    // calculate final price
+    const finalPrice =
+        existedProduct.price
+        - discount
+        + shippingCost;
 
-    if (!updatedShippingCost) {
-        throw new ApiError(500, "Something Went Wrong While Updating ShippingCost");
+    // validate final price
+    if (finalPrice < 0) {
+        throw new ApiError(
+            400,
+            "FinalPrice Cannot Be Negative"
+        );
     }
 
-    return res
-        .status(200)
-        .json(
-            new ApiResponse(200, updatedShippingCost, "Shipping Cost Updated Successfully")
+    // update product
+    existedProduct.shippingCost = shippingCost;
+    existedProduct.finalPrice = finalPrice;
+
+    // save
+    await existedProduct.save();
+
+    // return response
+    return res.status(200).json(
+        new ApiResponse(
+            200,
+            existedProduct,
+            "ShippingCost Updated Successfully"
         )
-})
+    );
+});
 
 const changeProductStatus = asyncHandler(async (req, res) => {
     const { status } = req.body
@@ -443,46 +486,80 @@ const addDiscountPrice = asyncHandler(async (req, res) => {
     // fetch user id
     const userId = req.user?._id;
 
+    // validate user
     if (!userId) {
-        throw new ApiError(401, "Unauthorized Access Denied");
+        throw new ApiError(
+            401,
+            "Unauthorized Access Denied"
+        );
     }
 
     // fetch discount price
     const { discountPrice } = req.body;
 
     // validate discount price
-    if (discountPrice === undefined || discountPrice <= 0) {
-        throw new ApiError(400, "Valid DiscountPrice Is Required");
+    if (
+        discountPrice === undefined ||
+        typeof discountPrice !== "number" ||
+        discountPrice < 0
+    ) {
+        throw new ApiError(
+            400,
+            "Valid DiscountPrice Is Required"
+        );
     }
 
     // fetch product id
     const { productId } = req.params;
 
     // validate product id
-    if (!productId || !mongoose.isValidObjectId(productId)) {
-        throw new ApiError(400, "Invalid ProductId");
+    if (
+        !productId ||
+        !mongoose.isValidObjectId(productId)
+    ) {
+        throw new ApiError(
+            400,
+            "Invalid ProductId"
+        );
     }
 
     // find product
     const existedProduct = await Product.findById(productId);
 
+    // validate product
     if (!existedProduct) {
-        throw new ApiError(404, "Product Not Found");
+        throw new ApiError(
+            404,
+            "Product Not Found"
+        );
     }
 
     // ownership check
-    if (existedProduct.createdBy.toString() !== userId.toString()) {
-        throw new ApiError(403, "You Can Update Only Your Product");
+    if (
+        existedProduct.createdBy.toString() !==
+        userId.toString()
+    ) {
+        throw new ApiError(
+            403,
+            "You Can Update Only Your Product"
+        );
     }
 
+    // existing shipping
+    const shipping =
+        existedProduct.shippingCost || 0;
+
     // calculate final price
-    const finalPrice = existedProduct.price - discountPrice;
+    const finalPrice =
+        existedProduct.price
+        - discountPrice
+        + shipping;
 
     // validate final price
-    if (finalPrice <= 0) {
+    if (finalPrice < 0) {
         throw new ApiError(
             400,
-            "DiscountPrice Must Be Less Than Actual Price"
+            "DiscountPrice Is Greater Than Product Price"
         );
     }
 
@@ -490,8 +567,10 @@ const addDiscountPrice = asyncHandler(async (req, res) => {
     existedProduct.discountPrice = discountPrice;
     existedProduct.finalPrice = finalPrice;
 
+    // save product
     await existedProduct.save();
 
+    // return response
     return res.status(200).json(
         new ApiResponse(
             200,
