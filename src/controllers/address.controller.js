@@ -49,6 +49,159 @@ const CreateAddress = asyncHandler(async (req, res) => {
     )
 })
 
+const updateAddress = asyncHandler(async (req, res) => {
+
+    // fetch user id
+    const userId = req.user?._id;
+
+    // validate user
+    if (!userId) {
+        throw new ApiError(
+            401,
+            "Unauthorized Access Denied"
+        );
+    }
+
+    // fetch all fields
+    const {
+        addressType,
+        city,
+        state,
+        country,
+        pinCode,
+        landmark,
+        houseNo
+    } = req.body;
+
+    // check at least one field
+    if (
+        addressType === undefined &&
+        city === undefined &&
+        state === undefined &&
+        country === undefined &&
+        pinCode === undefined &&
+        landmark === undefined &&
+        houseNo === undefined
+    ) {
+        throw new ApiError(
+            400,
+            "At Least One Field Is Required To Update"
+        );
+    }
+
+    // fetch address id
+    const { addressId } = req.params;
+
+    // validate address id
+    if (
+        !addressId ||
+        !mongoose.isValidObjectId(addressId)
+    ) {
+        throw new ApiError(
+            400,
+            "Invalid AddressId"
+        );
+    }
+
+    // allowed types
+    const allowedAddressTypes = [
+        "HOME",
+        "WORK",
+        "OTHER"
+    ];
+
+    // validate address type
+    if (
+        addressType !== undefined &&
+        !allowedAddressTypes.includes(addressType)
+    ) {
+        throw new ApiError(
+            400,
+            "Invalid AddressType"
+        );
+    }
+
+    // validate pin code
+    if (
+        pinCode !== undefined &&
+        !/^\d{6}$/.test(pinCode)
+    ) {
+        throw new ApiError(
+            400,
+            "Invalid Indian PIN Code"
+        );
+    }
+
+    // find address
+    const existedAddress =
+        await Address.findById(addressId);
+
+    // validate address
+    if (!existedAddress) {
+        throw new ApiError(
+            404,
+            "Address Not Found"
+        );
+    }
+
+    // ownership check
+    if (
+        existedAddress.user.toString() !==
+        userId.toString()
+    ) {
+        throw new ApiError(
+            403,
+            "You Can Update Only Your Address"
+        );
+    }
+
+    // update fields
+    if (addressType !== undefined) {
+        existedAddress.addressType =
+            addressType;
+    }
+
+    if (city !== undefined) {
+        existedAddress.city = city.trim();
+    }
+
+    if (state !== undefined) {
+        existedAddress.state = state.trim();
+    }
+
+    if (country !== undefined) {
+        existedAddress.country =
+            country.trim();
+    }
+
+    if (pinCode !== undefined) {
+        existedAddress.pinCode = pinCode;
+    }
+
+    if (landmark !== undefined) {
+        existedAddress.landmark =
+            landmark.trim();
+    }
+
+    if (houseNo !== undefined) {
+        existedAddress.houseNo =
+            houseNo.trim();
+    }
+
+    // save
+    await existedAddress.save();
+
+    // return response
+    return res.status(200).json(
+        new ApiResponse(
+            200,
+            existedAddress,
+            "Address Updated Successfully"
+        )
+    );
+});
+
 export {
     CreateAddress,
+    updateAddress,
 }
