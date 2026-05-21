@@ -202,10 +202,66 @@ const getAllMyProducts = asyncHandler(async (req, res) => {
     );
 });
 
+const AddSippingCost = asyncHandler(async (req, res) => {
+    const { shippingCost } = req.body
+
+    if (shippingCost === undefined || !shippingCost) {
+        throw new ApiError(400, "Shipping Cost Is Required!");
+    }
+
+    const userId = req.user?._id
+
+    if (!userId) {
+        throw new ApiError(401, "Unauthorized Access Denied!");
+    }
+
+    const { productId } = req.params;
+
+    if (!productId || !mongoose.isValidObjectId(productId)) {
+        throw new ApiError(400, "Invalid ProductId");
+    }
+
+    const existedProduct = await Product.findById(productId);
+
+    if (!existedProduct) {
+        throw new ApiError(404, "Product Not Exists!");
+    }
+
+    if (existedProduct.createdBy.toString() !== userId.toString()) {
+        throw new ApiError(403, "You Can Update Only Your Product");
+    }
+
+    const finalPrice = existedProduct.price + shippingCost;
+
+    const updatedProduct = await Product.findByIdAndUpdate(
+        productId,
+        {
+            $set: {
+                shippingCost,
+                price: finalPrice
+            },
+        },
+        {
+            new: true,
+        }
+    );
+
+    if (!updatedProduct) {
+        throw new ApiError(500, "Something Went Wrong While Updating ShippingCost");
+    }
+
+    return res
+        .status(200)
+        .json(
+            new ApiResponse(200, updatedProduct, "Shipping Cost Updated Successfully")
+        )
+})
+
 export {
     AddProduct,
     deleteProduct,
     getProductById,
     getAllProduct,
-    getAllMyProducts
+    getAllMyProducts,
+    AddSippingCost
 }
