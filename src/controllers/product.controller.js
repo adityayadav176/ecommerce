@@ -174,30 +174,101 @@ const getAllProduct = asyncHandler(async (req, res) => {
 
 const getAllMyProducts = asyncHandler(async (req, res) => {
 
+    // get logged in user id
     const userId = req.user?._id;
 
+    // check authorization
     if (!userId) {
         throw new ApiError(401, "Unauthorized Access Denied!");
     }
 
-    const filter = {
-        createdBy: new mongoose.Types.ObjectId(userId)
-    };
+    // aggregate products
+    const products = await Product.aggregate([
 
-    const products = await Product.find(filter)
-        .sort({ createdAt: -1 })
-        .lean();
+        // fetch only logged in user products
+        {
+            $match: {
+                createdBy: new mongoose.Types.ObjectId(userId)
+            }
+        },
 
-    const totalProducts = await Product.countDocuments(filter);
+        // add final price field
+        {
+            $addFields: {
+                finalPrice: {
+                    $add: [
+                        "$price",
+                        {
+                            $ifNull: ["$shippingCost", 0]
+                        }
+                    ]
+                }
+            }
+        },
 
+        // remove discontinued products
+        {
+            $match: {
+                status: {
+                    $ne: "DISCONTINUED"
+                }
+            }
+        },
+
+        // sort latest products first
+        {
+            $sort: {
+                createdAt: -1
+            }
+        },
+
+        // calculate totals
+        {
+            $group: {
+                _id: null,
+
+                totalProducts: {
+                    $sum: 1
+                },
+
+                totalStock: {
+                    $sum: "$stock"
+                },
+
+                totalPrice: {
+                    $sum: "$finalPrice"
+                },
+
+                products: {
+                    $push: "$$ROOT"
+                }
+            }
+        }
+
+    ]);
+
+    // if no products
+    if (!products.length) {
+        return res.status(200).json(
+            new ApiResponse(
+                200,
+                {
+                    totalProducts: 0,
+                    totalStock: 0,
+                    totalPrice: 0,
+                    products: []
+                },
+                "No Products Found"
+            )
+        );
+    }
+
+    // return response
     return res.status(200).json(
         new ApiResponse(
             200,
-            {
-                totalProducts,
-                products
-            },
-            "Fetched All User Products Successfully"
+            products[0],
+            "Products Fetched Successfully"
         )
     );
 });
