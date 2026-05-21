@@ -274,6 +274,8 @@ const getAllMyProducts = asyncHandler(async (req, res) => {
 });
 
 const AddSippingCost = asyncHandler(async (req, res) => {
+
+    //wrong controller logic
     const { shippingCost } = req.body
 
     if (shippingCost === undefined || !shippingCost) {
