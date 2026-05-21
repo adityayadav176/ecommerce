@@ -436,6 +436,73 @@ const toggleIsPublished = asyncHandler(async (req, res) => {
     )
 })
 
+const addDiscountPrice = asyncHandler(async (req, res) => {
+
+    // fetch user id
+    const userId = req.user?._id;
+
+    if (!userId) {
+        throw new ApiError(401, "Unauthorized Access Denied");
+    }
+
+    // fetch discount price
+    const { discountPrice } = req.body;
+
+    // validate discount price
+    if (discountPrice === undefined || discountPrice <= 0) {
+        throw new ApiError(400, "Valid DiscountPrice Is Required");
+    }
+
+    // fetch product id
+    const { productId } = req.params;
+
+    // validate product id
+    if (!productId || !mongoose.isValidObjectId(productId)) {
+        throw new ApiError(400, "Invalid ProductId");
+    }
+
+    // find product
+    const existedProduct = await Product.findById(productId);
+
+    if (!existedProduct) {
+        throw new ApiError(404, "Product Not Found");
+    }
+
+    // ownership check
+    if (existedProduct.createdBy.toString() !== userId.toString()) {
+        throw new ApiError(403, "You Can Update Only Your Product");
+    }
+
+    // calculate final price
+    const finalPrice = existedProduct.price - discountPrice;
+
+    // validate final price
+    if (finalPrice <= 0) {
+        throw new ApiError(
+            400,
+            "DiscountPrice Must Be Less Than Actual Price"
+        );
+    }
+
+    // update product
+    existedProduct.discountPrice = discountPrice;
+    existedProduct.finalPrice = finalPrice;
+
+    await existedProduct.save();
+
+    return res.status(200).json(
+        new ApiResponse(
+            200,
+            existedProduct,
+            "DiscountPrice Updated Successfully"
+        )
+    );
+});
+
+const updateStock = asyncHandler(async (req, res) => {
+
+})
+
 export {
     AddProduct,
     deleteProduct,
@@ -445,4 +512,5 @@ export {
     AddSippingCost,
     toggleIsPublished,
     changeProductStatus,
+    addDiscountPrice,
 }

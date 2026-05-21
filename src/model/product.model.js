@@ -22,6 +22,12 @@ const productSchema = new Schema({
         required: true,
         min: 0,
     },
+    finalPrice:{
+        type: Number,
+        required: true,
+        default: 0,
+        min: 0,
+    },
     stock: {
         type: Number,
         required: true,
