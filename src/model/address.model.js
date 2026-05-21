@@ -3,7 +3,7 @@ import mongoose, {Schema} from "mongoose";
 const addressSchema = new Schema({
     addressType: {
         type: String,
-        enum: ["HOME", "WORK"],
+        enum: ["HOME", "WORK", "OTHER"],
         required: true
     },
     city: {
@@ -22,8 +22,10 @@ const addressSchema = new Schema({
         trim: true
     },
     pinCode: {
-        type: Number,
-        required: true
+        type: String,
+        required: true,
+        trim: true,
+        match: [/^\d{6}$/, "Invalid PIN Code"]
     },
     landmark: {
         type: String,

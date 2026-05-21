@@ -674,6 +674,8 @@ const addDiscountPrice = asyncHandler(async (req, res) => {
     );
 });
 
+// pending // pending // pending // pending // pending
+
 const updateStock = asyncHandler(async (req, res) => {
 
 })
@@ -686,8 +688,6 @@ const SoldAProduct = asyncHandler(async (req, res) => {
 
 })
 
-
-
 export {
     AddProduct,
     deleteProduct,
@@ -698,5 +698,5 @@ export {
     toggleIsPublished,
     changeProductStatus,
     addDiscountPrice,
-    updateProductDetails
+    updateProductDetails,
 }
