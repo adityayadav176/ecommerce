@@ -19,7 +19,6 @@ router.route("/addProduct").post(
 router.route("/:productId").delete(verifyJwt, deleteProduct);
 router.route("/product/:productId").get(verifyJwt, getProductById);
 router.route("/getAllProduct").get(getAllProduct);
-router.route("/my-products")
-    .get(verifyJwt, getAllMyProducts);
+router.route("/my-products").get(verifyJwt, getAllMyProducts);
 router.route("/updateShippingCost/:productId").patch(verifyJwt, AddSippingCost);
 export default router;
