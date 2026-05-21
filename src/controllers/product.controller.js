@@ -304,7 +304,7 @@ const AddSippingCost = asyncHandler(async (req, res) => {
 
     const finalPrice = existedProduct.price + shippingCost;
 
-    const updatedProduct = await Product.findByIdAndUpdate(
+    const updatedShippingCost = await Product.findByIdAndUpdate(
         productId,
         {
             $set: {
@@ -317,15 +317,77 @@ const AddSippingCost = asyncHandler(async (req, res) => {
         }
     );
 
-    if (!updatedProduct) {
+    if (!updatedShippingCost) {
         throw new ApiError(500, "Something Went Wrong While Updating ShippingCost");
     }
 
     return res
         .status(200)
         .json(
-            new ApiResponse(200, updatedProduct, "Shipping Cost Updated Successfully")
+            new ApiResponse(200, updatedShippingCost, "Shipping Cost Updated Successfully")
         )
+})
+
+const changeProductStatus = asyncHandler(async (req, res) => {
+    const { status } = req.body
+
+    if(!status) {
+        throw new ApiError(400, "Status is Required To Be Changed");
+    }
+
+    const userId = req.user._id
+
+    if(!userId) {
+        throw new ApiError(401, "Unauthorized Access Denied!");
+    }
+
+    const {productId} = req.params
+
+    if(!productId || !mongoose.isValidObjectId(productId)) {
+        throw new ApiError(400, "Invalid Product Id");
+    }
+
+    const AllowedStatus = ["ACTIVE", "OUT_OF_STOCK", "DISCONTINUED"];
+
+    if(!AllowedStatus.includes(status)) {
+        throw new ApiError(400, "Invalid Status Value");
+    }
+
+    const existedProduct = await Product.findById(productId);
+
+    if(!existedProduct) {
+        throw new ApiError(404, "Product Not Found");
+    }
+
+    if(existedProduct.createdBy.toString() !== userId.toString()) {
+        throw new ApiError(400, "You Are Not Allowed To Perform This Task");
+    }
+
+    if(existedProduct.status === status) {
+        throw new ApiError(400, `Status Already ${status}`)
+    }
+
+    const updatedStatus = await Product.findByIdAndUpdate(
+        productId,
+        {
+            $set: {
+                status
+            }
+        },
+        {
+            new: true,
+        },
+    )
+
+    if(!updatedStatus) {
+        throw new ApiError(400, "Something Went Wrong While Updating Status");
+    }
+
+    return res
+    .status(200)
+    .json(
+        new ApiResponse(200, updatedStatus, "Status Updated Successfully")
+    )
 })
 
 export {
@@ -334,5 +396,6 @@ export {
     getProductById,
     getAllProduct,
     getAllMyProducts,
-    AddSippingCost
+    AddSippingCost,
+    changeProductStatus,
 }
