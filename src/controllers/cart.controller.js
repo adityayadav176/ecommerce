@@ -218,15 +218,115 @@ const getCart = asyncHandler(async (req, res) => {
     )
 })
 
-const updateQuantity = asyncHandler(async(req, res) => {
+const updateQuantity = asyncHandler(async (req, res) => {
+    const userId = req.user?._id;
 
-})
+    if (!userId) {
+        throw new ApiError(401, "Unauthorized Access Denied");
+    }
+
+    const { productId } = req.params;
+    const { quantity } = req.body;
+
+    // Validate Product Id
+    if (!productId || !mongoose.isValidObjectId(productId)) {
+        throw new ApiError(400, "Invalid Product Id");
+    }
+
+    // Validate Quantity
+    if (quantity === undefined || quantity < 1) {
+        throw new ApiError(400, "Quantity must be greater than 0");
+    }
+
+    // Find Cart
+    const cart = await Cart.findOne({ user: userId });
+
+    if (!cart) {
+        throw new ApiError(404, "Cart Not Found");
+    }
+
+    // Find Product Inside Cart
+    const cartProduct = cart.items.find(
+        (item) => item.product.toString() === productId
+    );
+
+    if (!cartProduct) {
+        throw new ApiError(404, "Product Not Found In Cart");
+    }
+
+    // Check Product Stock
+    const product = await Product.findById(productId);
+
+    if (!product) {
+        throw new ApiError(404, "Product Not Found");
+    }
+
+    if (quantity > product.stock) {
+        throw new ApiError(
+            400,
+            `Only ${product.stock} items available in stock`
+        );
+    }
+    cartProduct.subtotal = cartProduct.priceAtPurchase * quantity;
+    // Update Quantity
+    cartProduct.quantity = quantity;
+
+    // Update Total Price
+    cart.totalPrice = cart.items.reduce((acc, item) => {
+        return acc + item.subtotal;
+    }, 0);
+
+    // Update Total Products
+     cart.totalItems = cart.items.reduce((acc, item) => {
+        return acc + item.quantity;
+    }, 0);
+
+    await cart.save();
+
+    return res.status(200).json(
+        new ApiResponse(
+            200,
+            cart,
+            "Product Quantity Updated Successfully"
+        )
+    );
+});
 
 const removePFromCart = asyncHandler(async(req, res) => {
-
+    
 })
 
 const clearCart = asyncHandler(async (req, res) => {
+    const userId = req.user._id
+
+    if(!userId) {
+        throw new ApiError(401, "Unauthorized Access Denied");
+    }
+
+    const cart = await Cart.findOne({user : userId});
+
+    if(!cart) {
+        throw new ApiError(404, "Cart Not Found");
+    }
+
+    if(cart.items.length === 0) {
+        throw new ApiError(400, "Cart Already Empty");
+    }
+
+    while(cart.items.length !== 0) {
+        cart.items.pop()
+    }
+
+    cart.totalItems = 0;
+    cart.totalPrice = 0;
+
+    await cart.save();
+
+    return res
+    .status(200)
+    .json(
+        new ApiResponse(200, cart, "Cart Clear Successfully")
+    )
 
 })
 
