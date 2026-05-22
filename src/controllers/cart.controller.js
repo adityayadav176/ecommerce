@@ -185,6 +185,9 @@ const addToCart = asyncHandler(async (req, res) => {
     );
 });
 
+const getCart = asyncHandler(async (req, res) => {
+    
+})
 
 export {
     addToCart

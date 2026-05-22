@@ -64,10 +64,10 @@ const addToWisList = asyncHandler(async (req, res) => {
     }
 
     wishlist = await Wishlist.findById(wishlist._id)
-    .populate({
-        path: "products",
-        select: "title finalPrice images"
-    });
+        .populate({
+            path: "products",
+            select: "title finalPrice images"
+        });
 
     return res.status(201).json(
 
@@ -82,25 +82,25 @@ const addToWisList = asyncHandler(async (req, res) => {
 const deleteProductToWishlist = asyncHandler(async (req, res) => {
     const userId = req.user?._id
 
-    if(!userId) {
+    if (!userId) {
         throw new ApiError(401, "Unauthorized Access Denied");
     }
 
-    const {productId} = req.params
+    const { productId } = req.params
 
-    if(!productId || !mongoose.isValidObjectId(productId)) {
+    if (!productId || !mongoose.isValidObjectId(productId)) {
         throw new ApiError(400, "Invalid Product Id");
     }
 
     const product = await Product.findById(productId);
 
-    if(!product) {
+    if (!product) {
         throw new ApiError(404, "Product Not Found");
     }
 
-    const wishlist = await Wishlist.findOne({user: userId})
+    const wishlist = await Wishlist.findOne({ user: userId })
 
-    if(!wishlist) {
+    if (!wishlist) {
         throw new ApiError(404, "Wishlist Not Found");
     }
 
@@ -113,18 +113,59 @@ const deleteProductToWishlist = asyncHandler(async (req, res) => {
                 products: productId
             }
         },
-        {new: true}
+        { new: true }
     )
 
     await wishlist.save();
 
     return res.status(200)
-    .json(
-        new ApiResponse(200, {}, "Product Deleted Successfully")
-    )
+        .json(
+            new ApiResponse(200, {}, "Product Deleted Successfully")
+        )
+})
+
+const getWishlist = asyncHandler(async (req, res) => {
+    const userId = req.user._id
+
+    if (!userId) {
+        throw new ApiError(401, "Unauthorized Access Denied");
+    }
+
+    const wishlist = await Wishlist.aggregate([
+        {
+            $match: {
+                user: userId
+            }
+        },
+        {
+            $lookup: {
+                from: "products",
+                localField: "products",
+                foreignField: "_id",
+                as: "products"
+            }
+        },
+        {
+            $addFields: {
+                totalProducts: {
+                    $size: "$products"
+                }
+            }
+        }
+    ]);
+
+    if (!wishlist) {
+        throw new ApiError(404, "Wishlist Not Found");
+    }
+
+    return res.status(200)
+        .json(
+            new ApiResponse(200, wishlist, "Fetched Wishlist Successfully")
+        );
 })
 
 export {
     addToWisList,
-    deleteProductToWishlist
+    deleteProductToWishlist,
+    getWishlist
 }
