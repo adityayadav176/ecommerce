@@ -674,11 +674,63 @@ const addDiscountPrice = asyncHandler(async (req, res) => {
     );
 });
 
-// pending // pending // pending // pending // pending
-
 const updateStock = asyncHandler(async (req, res) => {
+    const userId = req.user?._id
 
+    if(!userId) {
+        throw new ApiError(401, "Unauthorized Access Denied");
+    }
+
+    const { productId } = req.params;
+
+    if(!productId || !mongoose.isValidObjectId(productId)) {
+        throw new ApiError(400, "Invalid Product Id");
+    }
+
+    const { stock } = req.body
+
+     if (stock === undefined) {
+        throw new ApiError(400, "Stock is required");
+    }
+
+    const existedProduct = await Product.findById(productId);
+
+    if(!existedProduct) {
+        throw new ApiError(404, "Product Not Found");
+    }
+
+    if(existedProduct.createdBy.toString() !== userId.toString()) {
+        throw new ApiError(403, "You are Not Allowed To Perform This Task");
+    }
+
+    if(stock < 0) {
+        throw new ApiError(400, "Required Must One Stock Item");
+    }
+
+    const updatedStock = await Product.findByIdAndUpdate(
+        productId,
+        {
+            $set: {
+                stock
+            },
+        },
+        {
+            new: true,
+        }
+    )
+
+    if(!updateStock) {
+        throw new ApiError(500, "Something Went Wrong While Updating Stock")
+    }
+
+    return res.
+    status(200)
+    .json(
+        new ApiResponse(200, updatedStock ,"Stock Updated Successfully")
+    )
 })
+
+// pending // pending // pending // pending // pending
 
 const updateRating = asyncHandler(async (req, res) => {
 
@@ -699,4 +751,5 @@ export {
     changeProductStatus,
     addDiscountPrice,
     updateProductDetails,
+    updateStock,
 }
