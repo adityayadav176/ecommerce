@@ -164,8 +164,39 @@ const getWishlist = asyncHandler(async (req, res) => {
         );
 })
 
+const clearWishlist = asyncHandler(async (req, res) => {
+    const userId = req.user._id
+
+    if(!userId) {
+        throw new ApiError(401, "Unauthorized Access Denied");
+    }
+
+    const wishlist = await Wishlist.findOne({user: userId});
+
+    if(!wishlist) {
+        throw new ApiError(404, "Wishlist Not Found");
+    }
+
+    if(wishlist.products.length === 0) {
+        throw new ApiError(400, "Wishlist Already Empty");
+    }
+
+    while(wishlist.products.length !== 0) {
+        wishlist.products.pop();
+    }
+
+    wishlist.save()
+
+    return res
+    .status(200)
+    .json(
+        new ApiResponse(200, {}, "Wishlist Cleared Successfully")
+    )
+})
+
 export {
     addToWisList,
     deleteProductToWishlist,
-    getWishlist
+    getWishlist,
+    clearWishlist
 }

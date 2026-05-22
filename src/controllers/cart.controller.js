@@ -293,7 +293,71 @@ const updateQuantity = asyncHandler(async (req, res) => {
 });
 
 const removePFromCart = asyncHandler(async(req, res) => {
-    
+    const userId = req.user?._id
+
+    if(!userId) {
+        throw new ApiError(401, "Unauthorized Access Denied");
+    }
+
+    const {productId} = req.params
+
+    if(!productId || !mongoose.isValidObjectId(productId)) {
+        throw new ApiError(400, "Invalid Product Id");
+    }
+
+    const cart = await Cart.findOne({user: userId});
+
+    if(!cart) {
+        throw new ApiError(404, "Cart Not Found");
+    }
+
+    const product = await Product.findById(productId);
+
+     if(!product) {
+        throw new ApiError(404, "Product Not Found");
+    }
+
+    const cartProduct = cart.items.find((item) => item.product.toString() === productId)
+
+    if(!cartProduct) {
+        throw new ApiError(400, "Product Not Found In Cart");
+    }
+
+    const updatedCart = await Cart.findOneAndUpdate(
+        {user: userId},
+        {
+            $pull: {
+                items: {
+                    product: productId
+                }
+            }
+        },
+        {
+            new: true
+        }
+    )
+
+    updatedCart.totalItems = updatedCart.items.reduce(
+        (acc, item) => acc + item.quantity,
+        0
+    )
+
+    updatedCart.totalPrice = updatedCart.items.reduce(
+        (acc, item) =>acc + (item.finalPrice * item.quantity),
+        0
+    )
+
+    await updatedCart.save();
+
+    if(!updatedCart) {
+        throw new ApiError(500, "Something Went Wrong While Updating Cart");
+    }
+
+    return res
+    .status(200)
+    .json(
+        new ApiResponse(200, updatedCart, "Product Deleted Successfully")
+    )
 })
 
 const clearCart = asyncHandler(async (req, res) => {
