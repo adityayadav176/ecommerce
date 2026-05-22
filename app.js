@@ -21,12 +21,14 @@ app.use(express.static("public"))
 // import 
 import userRouter from "./src/routes/user.routes.js";
 import productRouter from "./src/routes/product.routes.js";
-import addressRouter from "./src/routes/address.routes.js"
+import addressRouter from "./src/routes/address.routes.js";
+import cartRouter from "./src/routes/cart.routes.js";
 
 //router declaration
 
 app.use("/api/auth/users", userRouter);
 app.use("/api/products", productRouter);
 app.use("/api/address", addressRouter);
+app.use("/api/cart", cartRouter);
 
 export default app;
