@@ -24,6 +24,7 @@ import productRouter from "./src/routes/product.routes.js";
 import addressRouter from "./src/routes/address.routes.js";
 import cartRouter from "./src/routes/cart.routes.js";
 import wishListRouter from "./src/routes/wishlist.routes.js"
+import okkRouter from "./src/routes/okk.routes.js";
 
 //router declaration
 
@@ -32,5 +33,6 @@ app.use("/api/products", productRouter);
 app.use("/api/address", addressRouter);
 app.use("/api/cart", cartRouter);
 app.use("/api/wishlist", wishListRouter);
+app.use("/api/everything", okkRouter);
 
 export default app;
