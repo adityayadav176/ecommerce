@@ -186,9 +186,55 @@ const addToCart = asyncHandler(async (req, res) => {
 });
 
 const getCart = asyncHandler(async (req, res) => {
+    const userId = req.user._id
+
+    if(!userId) {
+        throw new ApiError(401, "Unauthorized Access Denied");
+    }
+
+    const cart = await Cart.aggregate([
+        {
+            $match: {
+                user: userId
+            },
+        },
+        {
+            $lookup: {
+                from: "items",
+                localField: "product",
+                foreignField: "_id",
+                as: "products"
+            }
+        }
+    ])
     
+    if(!cart) {
+        throw new ApiError(404, "Cart Not Found");
+    }
+
+    return res.status(200)
+    .json(
+        new ApiResponse(200, cart, "Cart Fetched Successfully")
+    )
 })
 
+const updateQuantity = asyncHandler(async(req, res) => {
+
+})
+
+const removePFromCart = asyncHandler(async(req, res) => {
+
+})
+
+const clearCart = asyncHandler(async (req, res) => {
+
+})
+
+
 export {
-    addToCart
+    addToCart,
+    getCart,
+    removePFromCart,
+    clearCart,
+    updateQuantity
 }
