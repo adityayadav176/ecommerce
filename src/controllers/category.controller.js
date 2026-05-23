@@ -78,8 +78,13 @@ const updateCategory = asyncHandler(async (req, res) => {
         {
             title,
             description,
-            tags
+            tags,
+            slug: slugify(title, {
+            lower: true,
+            strict: true
+        }),
         },
+        
         {
             new: true
         }
@@ -105,7 +110,28 @@ const changeCategoryImage = asyncHandler(async (req, res) => {
 })
 
 const getCategoryBySlug = asyncHandler(async (req, res) => {
+    const userId = req.user._id
 
+    if(!userId) {
+        throw new ApiError(401, "Unauthorized Access Denied");
+    }
+
+    const {slug} = req.params;
+
+    if(!slug) {
+        throw new ApiError(400, "Slug is Required");
+    }
+
+    const category = await Category.findOne({slug});
+
+    if(!category) {
+        throw new ApiError(404, "Category Not Found");
+    }
+
+    return res.status(200)
+    .json(
+        new ApiResponse(200, category, "Category Fetched Successfully")
+    )
 })
 
 const deleteCategoryBySlug = asyncHandler(async ( req, res) => {
