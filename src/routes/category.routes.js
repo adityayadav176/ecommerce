@@ -21,6 +21,16 @@ router.route("/addCategory").post(
 router.route("/updatedCategory/:slug").patch(verifyJwt, verifyAdmin, updateCategory);
 router.route("/getCategory/:slug").get(verifyJwt, getCategoryBySlug);
 router.route("/deleteCategory/:slug").delete(verifyJwt, verifyAdmin, deleteCategoryBySlug);
-router.route("/changeCategoryImage/:slug").patch(verifyJwt, verifyAdmin, changeCategoryImage);
+router.route("/changeCategoryImage/:slug").patch(
+    verifyJwt,
+    verifyAdmin,
+    upload.fields([
+        {
+            name: "image",
+            maxCount: 1,
+        }
+    ]),
+    changeCategoryImage
+);
 router.route("/toggleIsActive/:slug").patch(verifyJwt, verifyAdmin, toggleIsActive);
 export default router;

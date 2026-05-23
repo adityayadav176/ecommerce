@@ -132,50 +132,53 @@ const toggleIsActive = asyncHandler(async (req, res) => {
 })
 
 const changeCategoryImage = asyncHandler(async (req, res) => {
-    const userId = req.user?._id
-    
-    if(!userId) {
+    const userId = req.user?._id;
+
+    if (!userId) {
         throw new ApiError(401, "Unauthorized Access Denied");
     }
 
-    const {slug} = req.params
+    const { slug } = req.params;
 
-    if(!slug) {
+    if (!slug) {
         throw new ApiError(400, "Slug Is Required");
     }
 
-    const category = await Category.findOne({slug});
+    const imageLocalPath = req.files?.image?.[0]?.path;
 
-    if(!category) {
+    if (!imageLocalPath) {
+        throw new ApiError(400, "Image file is required");
+    }
+
+    const category = await Category.findOne({ slug });
+
+    if (!category) {
         throw new ApiError(404, "Category Not Found");
     }
 
-    if(category.image) {
-       await cloudinary.v2.uploader.destroy(category.public_id);
-    }
-
-    const imageLocalPath = req.files?.image?.[0]?.path
-
-    if(!imageLocalPath) {
-        throw new ApiError(409, "ImagePath Are Required");
-    }
-
+    // upload new image first (safer)
     const uploadResult = await uploadOnCloudinary(imageLocalPath);
 
-    if(!uploadResult) {
-        throw new ApiError(500, "Internal Error While Uploading Files");
+    if (!uploadResult) {
+        throw new ApiError(500, "Error while uploading image");
     }
 
-    category.image = uploadResult.secure_url;
-    category.public_id = uploadResult.public_id;
+    // delete old image AFTER successful upload
+    if(category.image && category.image.length <= 0) {
+        for(const img of category.image) {
+            await cloudinary.uploader.destroy(img.public_id);
+        }
+    }
+
+    category.image.url = uploadResult.secure_url;
+    category.image.public_id = uploadResult.public_id;
 
     await category.save();
 
-    return res.status(200)
-    .json(
-        new ApiResponse(200, category, "Image Updating Successfully")
-    )
-})
+    return res.status(200).json(
+        new ApiResponse(200, category, "Image Updated Successfully")
+    );
+});
 
 const getCategoryBySlug = asyncHandler(async (req, res) => {
     const userId = req.user._id
@@ -191,6 +194,10 @@ const getCategoryBySlug = asyncHandler(async (req, res) => {
     }
 
     const category = await Category.findOne({slug});
+
+    if(!category.isActive) {
+        throw new ApiError(400, "Category is Not Accessible")
+    }
 
     if(!category) {
         throw new ApiError(404, "Category Not Found");
