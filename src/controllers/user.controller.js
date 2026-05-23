@@ -4,6 +4,7 @@ import {uploadOnCloudinary} from "../config/cloudinary.js"
 import { ApiError } from "../utils/ApiError.js";
 import { ApiResponse } from "../utils/ApiResponse.js"
 import {asyncHandler} from "../utils/asyncHandler.js"
+import {transporter} from "../config/nodemailer.config.js"
 
 
 const generateAccessAndRefreshToken = async (userId) => {
@@ -36,58 +37,84 @@ const generateAccessAndRefreshToken = async (userId) => {
     }
 }
 
-const registerUser = asyncHandler(async(req, res)=> {
-    // get user details req.body
-    // validate details
-    // check if user already exists
-    // check images, avatar
-    // upload them on cloudinary
-    // create user objects 
-    // remove password refresh token
-    // check user creation 
-    // return res
+const registerUser = asyncHandler(async (req, res) => {
+    const { fullName, email, password, mobileNo, role } = req.body || {};
 
-    const {fullName, email, password, mobileNo, role} = req.body || {}
-
-    if(!fullName || !email || !password || !role) {
-        throw new ApiError(400, "All Fields Are Required");
+    
+    if (!fullName || !email || !password || !mobileNo) {
+        throw new ApiError(400, "All required fields must be provided");
     }
 
+   
     const existedUser = await User.findOne({
-        $or: [{email}, {mobileNo}]
-    }) 
+        $or: [{ email }, { mobileNo }]
+    });
 
-    if(existedUser) {
-        throw new ApiError(400, "User Already Exists");
+    if (existedUser) {
+        throw new ApiError(400, "User already exists with email or mobile number");
     }
 
-   const avatarLocalPath = req.files?.avatar?.[0]?.path;
+   
+    let avatarUrl = "";
 
-    if(!avatarLocalPath) {
-        throw new ApiError(400, "Avatar file is required");
+    const avatarLocalPath = req.files?.avatar?.[0]?.path;
+
+    if (avatarLocalPath) {
+        const avatar = await uploadOnCloudinary(avatarLocalPath);
+
+        if (!avatar?.url) {
+            throw new ApiError(500, "Avatar upload failed");
+        }
+
+        avatarUrl = avatar.url;
     }
-
-    const avatar = await uploadOnCloudinary(avatarLocalPath);
 
     const user = await User.create({
         fullName,
         email,
+        password, 
         mobileNo,
-        password,
-        role,
-        avatar: avatar?.url
-    })
+        role: role || "Customer",
+        avatar: avatarUrl
+    });
+
+   
+    const accessToken = user.generateAccessToken();
+    const refreshToken = user.generateRefreshToken();
+
+    user.refreshToken = refreshToken;
+    await user.save({ validateBeforeSave: false });
 
     const createdUser = await User.findById(user._id).select("-password -refreshToken");
 
-    if(!createdUser) {
-        throw new ApiError(500, "Something Went Wrong While Creating User");
+    if (!createdUser) {
+        throw new ApiError(500, "User creation failed");
     }
 
-    return res.json(
-        new ApiResponse(200, createdUser, "User Register Successfully")
-    )
-})
+    const mailOptions = {
+        from: process.env.SENDER_EMAIL,
+        to: email,
+        subject: `Welcome to ${process.env.APP_NAME}`,
+        text: `Hi ${fullName}, welcome to ${process.env.APP_NAME}! Your account is successfully created.`
+    };
+
+    transporter.sendMail(mailOptions).catch(err => {
+        console.log("Email error:", err);
+    });
+
+    
+    return res.status(201).json(
+        new ApiResponse(
+            201,
+            {
+                user: createdUser,
+                accessToken,
+                refreshToken
+            },
+            "User registered successfully"
+        )
+    );
+});
 
 const loginUser = asyncHandler(async (req, res) => {
 
