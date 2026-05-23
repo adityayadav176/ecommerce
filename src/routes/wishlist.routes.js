@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { addToWisList, clearWishlist, deleteProductToWishlist,getWishlist } from "../controllers/wislist.controller.js";
+import { addToWisList, clearWishlist, deleteProductToWishlist,getWishlist } from "../controllers/wishlist.js";
 import { verifyJwt } from "../middleware/auth.middleware.js";
 
 const router = Router();
