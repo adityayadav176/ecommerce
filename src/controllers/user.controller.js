@@ -5,6 +5,7 @@ import { ApiError } from "../utils/ApiError.js";
 import { ApiResponse } from "../utils/ApiResponse.js"
 import {asyncHandler} from "../utils/asyncHandler.js"
 import {transporter} from "../config/nodemailer.config.js"
+import cloudinary from "cloudinary"
 
 
 const generateAccessAndRefreshToken = async (userId) => {
@@ -137,7 +138,7 @@ const loginUser = asyncHandler(async (req, res) => {
 
     const isPasswordValid =
         await user.isPasswordCorrect(password);
-
+    
     if (!isPasswordValid) {
         throw new ApiError(401, "Invalid User Credentials");
     }
@@ -197,10 +198,6 @@ const logoutUser = asyncHandler(async (req, res) => {
         );
 });
 
-const updatePassword = asyncHandler(async (req, res) => {
-
-})
-
 const updateFullName = asyncHandler(async (req, res) => {
     const {fullName} = req.body
 
@@ -235,6 +232,50 @@ const updateFullName = asyncHandler(async (req, res) => {
 })
 
 const updateProfilePicture = asyncHandler(async (req, res) => {
+    const userId = req.user?._id
+
+    if(!userId) {
+        throw new ApiError(401, "Unauthorized Access Denied");
+    }
+
+    const avatarLocalPath = req.files?.avatar?.[0]?.path
+
+    if(!avatarLocalPath) {
+        throw new ApiError(400, "Avatar File Is Required");
+    }
+
+    const uploadResult = await uploadOnCloudinary(avatarLocalPath);
+
+    if(!uploadResult) {
+        throw new ApiError(500, "Error While Uploading Avatar");
+    }
+
+    const user = await User.findById(userId).select("-password -refreshToken");
+
+    if(!user) {
+        throw new ApiError(404, "User Not Found");
+    }
+
+    if(user.avatar && user.avatar.length >= 0) {
+        for(const img of user.avatar) {
+           await cloudinary.uploader.destroy(img.public_id);
+        }
+    }
+
+    user.avatar = {
+        url: uploadResult.url,
+        public_id: uploadResult.public_id
+    };
+
+    await user.save();
+
+    return res.status(200)
+    .json(
+        new ApiResponse(200, user, "Avatar Change Successfully")
+    )
+})
+
+const updatePassword = asyncHandler(async (req, res) => {
 
 })
 
