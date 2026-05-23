@@ -1,6 +1,6 @@
 import { Router } from "express";
 
-import {loginUser, logoutUser, registerUser} from "../controllers/user.controller.js";
+import {loginUser, logoutUser, registerUser, updateFullName} from "../controllers/user.controller.js";
 import {upload} from "../middleware/multer.middleware.js"
 import { verifyJwt } from "../middleware/auth.middleware.js";
 
@@ -18,5 +18,6 @@ router.route("/register").post(
 
 router.route("/login").post(loginUser);
 router.route("/logout").post( verifyJwt, logoutUser);
+router.route("/updateFullName").patch(verifyJwt, updateFullName);
 
 export default router

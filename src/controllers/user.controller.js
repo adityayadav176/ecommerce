@@ -201,8 +201,37 @@ const updatePassword = asyncHandler(async (req, res) => {
 
 })
 
-const updateProfile = asyncHandler(async (req, res) => {
+const updateFullName = asyncHandler(async (req, res) => {
+    const {fullName} = req.body
 
+    if(!fullName) {
+        throw new ApiError(409, "FullName Are Required");
+    }
+
+    const userId = req.user?._id
+
+    if(!userId) {
+        throw new ApiError(401, "Unauthorized Access Denied");
+    }
+
+    const updatedFullName = await User.findByIdAndUpdate(
+        userId,
+        {
+            fullName
+        },
+        {
+            new: true
+        }
+    )
+
+    if(!updatedFullName) {
+        throw new ApiError(500, "Internal Server Error");
+    }
+
+    return res.status(200)
+    .json(
+        new ApiResponse(200, updatedFullName, "FullName Updated Successfully")
+    )
 })
 
 const updateProfilePicture = asyncHandler(async (req, res) => {
@@ -223,7 +252,7 @@ export {
     logoutUser,
     updatePassword,
     updateProfilePicture,
-    updateProfile,
+    updateFullName,
     VerifyEmail,
     generateRefreshToken
 }
