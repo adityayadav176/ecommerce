@@ -4,6 +4,7 @@ import { ApiError } from "../utils/ApiError.js"
 import { Category } from "../model/category.model.js"
 import slugify from "slugify";
 import { uploadOnCloudinary } from "../config/cloudinary.js";
+import mongoose, { mongo } from "mongoose";
 
 const addCategory = asyncHandler(async (req, res) => {
 
@@ -61,7 +62,39 @@ const addCategory = asyncHandler(async (req, res) => {
 });
 
 const updateCategory = asyncHandler(async (req, res) => {
+    const { title,description, tags } = req.body
+    
+    if(!title || !description) {
+        throw new ApiError(400, "Title And Description Are Required");
+    }
 
+    const {slug} = req.params
+
+    if(!slug) {
+        throw new ApiError(400, "Slug Are Required");
+    }
+
+    const updatedCategory = await Category.findOneAndUpdate(
+        {slug},
+        {
+            title,
+            description,
+            tags
+        },
+        {
+            new: true
+        }
+    )
+
+    if(!updatedCategory) {
+        throw new ApiError(500, "Internal Server Error While Updating Category");
+    }
+
+    return res
+    .status(200)
+    .json(
+        new ApiResponse(200, updatedCategory, "Category Updated Successfully")
+    )
 })
 
 const toggleIsActive = asyncHandler(async (req, res) => {
