@@ -3,7 +3,6 @@ import { asyncHandler } from "../utils/asyncHandler.js"
 import { ApiError } from "../utils/ApiError.js"
 import { ApiResponse } from "../utils/ApiResponse.js"
 import { uploadOnCloudinary } from "../config/cloudinary.js"
-import mongoose, { mongo } from "mongoose"
 import cloudinary from "cloudinary"
 
 const AddProduct = asyncHandler(async (req, res) => {
@@ -729,8 +728,6 @@ const updateStock = asyncHandler(async (req, res) => {
         new ApiResponse(200, updatedStock ,"Stock Updated Successfully")
     )
 })
-
-// pending // pending // pending // pending // pending
 
 const updateRating = asyncHandler(async (req, res) => {
 
