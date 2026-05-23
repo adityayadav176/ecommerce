@@ -105,9 +105,19 @@ const changeCategoryImage = asyncHandler(async (req, res) => {
 
 })
 
+const getCategoryBySlug = asyncHandler(async (req, res) => {
+
+})
+
+const deleteCategoryBySlug = asyncHandler(async ( req, res) => {
+
+})
+
 export {
     addCategory,
     updateCategory,
     toggleIsActive,
-    changeCategoryImage
+    changeCategoryImage,
+    getCategoryBySlug,
+    deleteCategoryBySlug
 }
