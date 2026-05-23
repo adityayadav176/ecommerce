@@ -4,7 +4,6 @@ import { ApiError } from "../utils/ApiError.js"
 import { Category } from "../model/category.model.js"
 import slugify from "slugify";
 import { uploadOnCloudinary } from "../config/cloudinary.js";
-import mongoose, { mongo } from "mongoose";
 
 const addCategory = asyncHandler(async (req, res) => {
 
