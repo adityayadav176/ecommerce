@@ -197,10 +197,33 @@ const logoutUser = asyncHandler(async (req, res) => {
         );
 });
 
-//pending pending pending pending 
+const updatePassword = asyncHandler(async (req, res) => {
+
+})
+
+const updateProfile = asyncHandler(async (req, res) => {
+
+})
+
+const updateProfilePicture = asyncHandler(async (req, res) => {
+
+})
+
+const VerifyEmail = asyncHandler(async (req, res) => {
+
+})
+
+const generateRefreshToken = asyncHandler(async (req, res) => {
+
+})
 
 export {
     registerUser,
     loginUser,
-    logoutUser
+    logoutUser,
+    updatePassword,
+    updateProfilePicture,
+    updateProfile,
+    VerifyEmail,
+    generateRefreshToken
 }
