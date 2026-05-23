@@ -1,68 +1,70 @@
-import mongoose, {Schema} from "mongoose";
-import bcrypt, { hash } from "bcrypt";
+import mongoose, { Schema } from "mongoose";
+import bcrypt from "bcrypt";
 
-const OtpSchema = new Schema({
-    email: {
-        type: String
-    },
-    mobileNo: {
-        type: String
-    },
+const OtpSchema = new Schema(
+    {
+        email: {
+            type: String,
+            lowercase: true,
+            trim: true,
+        },
 
-    otp: {
-        type: String,
-        required: true
-    },
+        mobileNo: {
+            type: Number,
+        },
+
+        otp: {
+            type: String,
+            required: true,
+            select: false,
+        },
+
+        attempts: {
+            type: Number,
+            default: 0,
+        },
 
     purpose: {
-        type: String,
-        enum: [
-            "REGISTER",
-            "LOGIN",
-            "FORGET_PASSWORD",
-            "2FA",
-            "EMAILVERIFICATION",
-        ],
-        required: true
+            type: String,
+            enum: [
+                "REGISTER",
+                "LOGIN",
+                "FORGET_PASSWORD",
+                "2FA",
+                "EMAIL_VERIFICATION",
+            ],
+            required: true,
+        },
+
+        expireAt: {
+            type: Date,
+            required: true,
+        },
+
+        verified: {
+            type: Boolean,
+            default: false,
+        },
     },
+    { timestamps: true }
+);
 
-    expireAt: {
-        type: Date,
-        required: true
-    },
-
-    verified: {
-        type: Boolean,
-        default: false
-    }
-},{timestamps: true})
-
-// HASH OTP BEFORE SAVE
+// OTP HASH 
 OtpSchema.pre("save", async function (next) {
+    if (!this.isModified("otp")) return next();
 
-  if (!this.isModified("otp")) {
-    return next();
-  }
+    const salt = await bcrypt.genSalt(10);
+    this.otp = await bcrypt.hash(this.otp, salt);
 
-  const salt = await bcrypt.genSalt(10);
-
-  this.otp = await bcrypt.hash(this.otp, salt);
-
-  next();
+    next();
 });
-   
-OtpSchema.methods.generateOtp = function() {
-    let otp = '';
-    for(let i = 0; i<6; i++){
-        otp+= Math.floor(Math.random() * 10);
-    }
 
-    return otp;
-}
+//  OTP CHECK METHOD 
+OtpSchema.methods.isOtpCorrect = async function (enteredOtp) {
+    return await bcrypt.compare(enteredOtp, this.otp);
+};
 
-OtpSchema.methods.isOtpCorrect = function() {
-    return await bcrypt.compare(otp, this.otp)
-}
-
+//  TTL AUTO DELETE 
+OtpSchema.index({ expireAt: 1 }, { expireAfterSeconds: 0 });
 
 export const Otp = mongoose.model("Otp", OtpSchema);
