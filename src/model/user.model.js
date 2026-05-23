@@ -1,4 +1,4 @@
-import mongoose, {Schema} from "mongoose";
+import mongoose, { Schema } from "mongoose";
 import bcrypt from "bcrypt";
 import jwt from "jsonwebtoken";
 
@@ -11,7 +11,9 @@ const userSchema = new Schema({
     email: {
         type: String,
         unique: true,
-        required: true
+        required: true,
+        trim: true,
+        lowercase: true
     },
     mobileNo: {
         type: Number,
@@ -21,7 +23,7 @@ const userSchema = new Schema({
     },
     password: {
         type: String,
-        required: true
+        required: true,
     },
     avatar: {
         type: String
@@ -42,47 +44,48 @@ const userSchema = new Schema({
         type: Boolean,
         default: false
     }
-},{timestamps: true})
+}, { timestamps: true })
 
-userSchema.pre("save", async function() {
-    if(!this.isModified("password")) return;
+userSchema.pre("save", async function (next) {
+    if (!this.isModified("password")) return;
 
     const salt = await bcrypt.genSalt(10);
     this.password = await bcrypt.hash(this.password, salt);
+    next();
 })
 
-userSchema.methods.isPasswordCorrect = async function(password) {
+userSchema.methods.isPasswordCorrect = async function (password) {
     return await bcrypt.compare(password, this.password)
 }
 
-userSchema.methods.generateAccessToken = function() {
+userSchema.methods.generateAccessToken = function () {
     return jwt.sign(
         {
             email: this.email,
             _id: this._id,
             mobileNo: this.mobileNo,
-            fullname: this.fullname,
+            fullName: this.fullName,
             role: this.role
         },
-            process.env.ACCESS_TOKEN_SECRET,
+        process.env.ACCESS_TOKEN_SECRET,
         {
             expiresIn: process.env.ACCESS_TOKEN_EXPIRY
-        }    
+        }
     )
 }
-userSchema.methods.generateRefreshToken = function() {
+userSchema.methods.generateRefreshToken = function () {
     return jwt.sign(
         {
-           email: this.email,
+            email: this.email,
             _id: this._id,
             mobileNo: this.mobileNo,
-            fullname: this.fullname,
+            fullName: this.fullName,
             role: this.role
         },
-            process.env.REFRESH_TOKEN_SECRET,
+        process.env.REFRESH_TOKEN_SECRET,
         {
             expiresIn: process.env.REFRESH_TOKEN_EXPIRY
-        }    
+        }
     )
 }
 

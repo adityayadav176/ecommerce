@@ -22,11 +22,9 @@ const productSchema = new Schema({
         required: true,
         min: 0,
     },
-    finalPrice:{
+    finalPrice: {
         type: Number,
-        required: true,
         default: 0,
-        min: 0,
     },
     stock: {
         type: Number,
@@ -41,7 +39,9 @@ const productSchema = new Schema({
     },
     tags: [{
         type: String,
-        index: true
+        index: true,
+        lowercase: true,
+        trim: true
     }],
     shippingCost: {
         type: Number,
@@ -54,16 +54,17 @@ const productSchema = new Schema({
         default: "ACTIVE"
     },
     category: {
-        type: String,
-        required: true,
-        trim: true,
+        type: mongoose.Types.ObjectId,
+        ref: "Category",
+        required: true
     },
     brand: {
         type: String,
         required: true,
         trim: true,
+        lowercase: true
     },
-    images:[
+    images: [
         {
             url: {
                 type: String,
@@ -87,8 +88,13 @@ const productSchema = new Schema({
     },
     discountPrice: {
         type: Number,
-        required: true,
-        default: 0
+        default: 0,
+        validate: {
+            validator: function (value) {
+                return value <= this.price;
+            },
+            message: "Discount price cannot exceed product price"
+        }
     },
     rating: {
         type: Number,
@@ -111,3 +117,14 @@ const productSchema = new Schema({
 productSchema.plugin(mongooseAggregatePaginate);
 
 export const Product = mongoose.model("Product", productSchema);
+
+productSchema.pre("save", function(next) {
+
+    if(this.stock <= 0) {
+        this.status = "OUT_OF_STOCK";
+    } else {
+        this.status = "ACTIVE";
+    }
+
+    next();
+})

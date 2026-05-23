@@ -1,5 +1,7 @@
 import mongoose, {Schema} from "mongoose";
 
+import mongoose, { Schema } from "mongoose";
+
 const categorySchema = new Schema({
     title: {
         type: String,
@@ -8,24 +10,44 @@ const categorySchema = new Schema({
         unique: true,
         lowercase: true
     },
+
+    slug: {
+        type: String,
+        unique: true,
+        lowercase: true
+    },
+
     description: {
         type: String,
         required: true,
         trim: true
     },
+
     tags: [{
         type: String,
         index: true,
-        lowercase: true
+        lowercase: true,
+        trim: true
     }],
+
     image: {
-        type: String,
-        default: "",
+        url: {
+            type: String,
+            default: ""
+        },
+        public_id: {
+            type: String,
+            default: ""
+        }
     },
-    isActive: { 
+
+    isActive: {
         type: Boolean,
         default: true
-    }
-},{timestamps: true})
+    },
+
+}, { timestamps: true });
+
+categorySchema.index({ title: 1 });
 
 export const Category = mongoose.model("Category", categorySchema);
