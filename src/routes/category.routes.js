@@ -1,7 +1,7 @@
 import { Router } from "express";
 import {verifyJwt} from "../middleware/auth.middleware.js"
 import { verifyAdmin } from "../middleware/verifyAdmin.middleware.js";
-import { addCategory, changeCategoryImage, deleteCategoryBySlug, getCategoryBySlug, toggleIsActive, updateCategory } from "../controllers/category.controller.js";
+import { addCategory, changeCategoryImage, deleteCategoryBySlug, getAllCategory, getCategoryBySlug, toggleIsActive, updateCategory } from "../controllers/category.controller.js";
 import { upload } from "../middleware/multer.middleware.js";
 const router = Router();
 
@@ -33,4 +33,5 @@ router.route("/changeCategoryImage/:slug").patch(
     changeCategoryImage
 );
 router.route("/toggleIsActive/:slug").patch(verifyJwt, verifyAdmin, toggleIsActive);
+router.route("/getAllCategories").get(verifyJwt ,getAllCategory)
 export default router;

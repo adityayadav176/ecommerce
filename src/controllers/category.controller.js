@@ -244,11 +244,49 @@ const deleteCategoryBySlug = asyncHandler(async ( req, res) => {
     
 })
 
+const getAllCategory = asyncHandler(async (req, res) => {
+    const userId = req.user?._id
+
+    if(!userId) {
+        throw new ApiError(401, "Unauthorized Access Denied");
+    }
+
+    let {page, limit} = req.query
+
+    page = parseInt(req.query.page) || 1;
+    limit = parseInt(req.query.limit) || 10;
+
+    const skip = (page - 1) * limit;
+
+    const Categories = await Category.find({})
+    .sort({createdAt: -1})
+    .skip(skip)
+    .limit(limit);
+
+    if(!Categories || Categories.length === 0) {
+        return res.status(200).json(
+            new ApiResponse(200, [], "No Categories Found")
+        )
+    }
+
+    const total = await Category.countDocuments();
+
+    return res.status(200).json(
+        new ApiResponse(200, {
+            Categories, 
+            total, 
+            totalPages: Math.ceil(total/limit), 
+            currentPage: page
+        }, "Categories Found Successfully")
+    );
+});
+
 export {
     addCategory,
     updateCategory,
     toggleIsActive,
     changeCategoryImage,
     getCategoryBySlug,
-    deleteCategoryBySlug
+    deleteCategoryBySlug,
+    getAllCategory
 }
