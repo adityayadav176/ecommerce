@@ -345,7 +345,7 @@ const VerifyEmail = asyncHandler(async (req, res) => {
         email: user.email,
         otp: otpCode,
         purpose: "EMAIL_VERIFICATION",
-        expireAt: new Date(Date.now() + 10 * 60 * 1000)
+        expireAt: new Date(Date.now() + 2 * 60 * 1000)
     });
 
     // send email
@@ -353,7 +353,7 @@ const VerifyEmail = asyncHandler(async (req, res) => {
         from: process.env.SENDER_EMAIL,
         to: user.email,
         subject: "Verify Your Email",
-        text: `Your OTP is ${otpCode}. It will expire in 10 minutes.`
+        text: `Your OTP is ${otpCode}. It will expire in 2 minutes.`
     });
 
     return res.status(200).json(

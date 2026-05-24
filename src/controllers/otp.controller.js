@@ -1,65 +1,128 @@
-import { Otp } from "../model/otp.model";
-import mongoose from "mongoose";
+import { Otp } from "../model/otp.model.js";
 import { ApiError } from "../utils/ApiError.js"
 import { ApiResponse } from "../utils/ApiResponse.js";
 import { asyncHandler } from "../utils/asyncHandler.js";
+import { User } from "../model/user.model.js";
 
 const verifyEmailOtp = asyncHandler(async (req, res) => {
-    const {otp} = req.body
 
-    if(!otp) {
-        throw new ApiError(400, "Otp Is Required");
+    const { email, otp } = req.body;
+
+    // validation
+    if (!email || !otp) {
+        throw new ApiError(
+            400,
+            "Email and OTP Required"
+        );
     }
 
-    const userId = req.user._id
+    // check user
+    const existingUser = await User.findOne({ email })
+        .select("-password -refreshToken");
 
-    if(!userId) {
-        throw new ApiError(401, "Unauthorized Access Denied");
+    if (!existingUser) {
+        throw new ApiError(
+            404,
+            "User Not Found"
+        );
     }
 
+    // already verified
+    if (existingUser.isEmailVerified) {
+        throw new ApiError(
+            400,
+            "Email Already Verified"
+        );
+    }
+
+    // find otp
     const otpDoc = await Otp.findOne({
-        email: user.email,
+        email,
         purpose: "EMAIL_VERIFICATION"
     }).select("+otp");
 
-    if(!otpDoc) {
-        throw new ApiError(404, "Otp Not Found");
+    if (!otpDoc) {
+        throw new ApiError(
+            404,
+            "OTP Not Found"
+        );
     }
 
-    if(otpDoc.expireAt < Date.now()) {
-        await Otp.deleteOne({_id: otpDoc._id});
+    // expiry check
+    if (otpDoc.expireAt < Date.now()) {
 
-        throw new ApiError(400, "Otp Is Expired");
+        await Otp.deleteOne({
+            _id: otpDoc._id
+        });
+
+        throw new ApiError(
+            400,
+            "OTP Expired"
+        );
     }
 
-    if(otpDoc.attempts >= 5) {
-        throw new ApiError(429, "Too Many Request")
+    // max attempts
+    if (otpDoc.attempts >= 5) {
+
+        await Otp.deleteOne({
+            _id: otpDoc._id
+        });
+
+        throw new ApiError(
+            429,
+            "Too Many Attempts"
+        );
     }
 
-    const isOtpCorrect = await otpDoc.isOtpCorrect(otp);
+    // compare otp
+    const isOtpCorrect =
+        await otpDoc.isOtpCorrect(otp);
 
-    if(!isOtpCorrect) {
-        otpDoc.attempts += 1;
+    if (!isOtpCorrect) {
 
-        await otpDoc.save({validateBeforeSave: false});
+        // increment attempts
+        await Otp.updateOne(
+            { _id: otpDoc._id },
+            {
+                $inc: {
+                    attempts: 1
+                }
+            }
+        );
 
-        throw new ApiError(400, "Invalid Otp");
+        throw new ApiError(
+            400,
+            "Invalid OTP"
+        );
     }
 
-    user.isEmailVerified = true;
+    // verify user
+    const verifiedUser =
+        await User.findOneAndUpdate(
+            { email },
+            {
+                isEmailVerified: true
+            },
+            {
+                new: true
+            }
+        ).select("-password -refreshToken");
 
-    await user.save({validateBeforeSave: false});
+    // delete otp after success
+    await Otp.deleteOne({
+        _id: otpDoc._id
+    });
 
-    await Otp.deleteOne({_id: otpDoc._id});
-
-    return res.status(200).json(
-        new ApiResponse(
-            200,
-            user,
-            "Email Verified Successfully"
-        )
-    )
-})
+    return res
+        .status(200)
+        .json(
+            new ApiResponse(
+                200,
+                verifiedUser,
+                "Email Verified Successfully"
+            )
+        );
+});
 
 export {
     verifyEmailOtp
