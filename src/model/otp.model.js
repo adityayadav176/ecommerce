@@ -7,10 +7,12 @@ const OtpSchema = new Schema(
             type: String,
             lowercase: true,
             trim: true,
+            sparse: true
         },
 
         mobileNo: {
             type: Number,
+            sparse: true
         },
 
         otp: {
@@ -24,7 +26,7 @@ const OtpSchema = new Schema(
             default: 0,
         },
 
-    purpose: {
+        purpose: {
             type: String,
             enum: [
                 "REGISTER",

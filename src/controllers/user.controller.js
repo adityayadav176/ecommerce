@@ -6,6 +6,7 @@ import { ApiResponse } from "../utils/ApiResponse.js"
 import { asyncHandler } from "../utils/asyncHandler.js"
 import { transporter } from "../config/nodemailer.config.js"
 import cloudinary from "cloudinary"
+import { Otp } from "../model/otp.model.js";
 
 
 const generateAccessAndRefreshToken = async (userId) => {
@@ -96,7 +97,7 @@ const registerUser = asyncHandler(async (req, res) => {
     }
 
     //  Email
-    transporter.sendMail({
+    await transporter.sendMail({
         from: process.env.SENDER_EMAIL,
         to: email,
         subject: `Welcome to ${process.env.APP_NAME}`,
@@ -287,11 +288,82 @@ const updateProfilePicture = asyncHandler(async (req, res) => {
 
 const updatePassword = asyncHandler(async (req, res) => {
 
+    const userId = req.user._id
+
+    if(!userId) {
+        throw new ApiError(401, "Unauthorized Access Denied");
+    }
+
+    const {password} = req.body
+
+    if(!password) {
+        throw new ApiError(400, "Password Is Required");
+    }
+
+    const user = await User.findById(userId);
+
+    if(!user) {
+        throw new ApiError(404, "User Not Found");
+    }
+
+    // update Password
 })
 
 const VerifyEmail = asyncHandler(async (req, res) => {
 
-})
+    const userId = req.user?._id;
+
+    if (!userId) {
+        throw new ApiError(401, "Unauthorized Access Denied");
+    }
+
+    const user = await User.findById(userId)
+        .select("-password -refreshToken");
+
+    if (!user) {
+        throw new ApiError(404, "User Not Found");
+    }
+
+    // already verified
+    if (user.isEmailVerified) {
+        throw new ApiError(400, "Email Already Verified");
+    }
+
+    // generate otp
+    const otpCode = Math.floor(
+        100000 + Math.random() * 900000
+    ).toString();
+
+    // delete previous otp
+    await Otp.deleteMany({
+        email: user.email,
+        purpose: "EMAIL_VERIFICATION"
+    });
+
+    // save otp
+    await Otp.create({
+        email: user.email,
+        otp: otpCode,
+        purpose: "EMAIL_VERIFICATION",
+        expireAt: new Date(Date.now() + 10 * 60 * 1000)
+    });
+
+    // send email
+    await transporter.sendMail({
+        from: process.env.SENDER_EMAIL,
+        to: user.email,
+        subject: "Verify Your Email",
+        text: `Your OTP is ${otpCode}. It will expire in 10 minutes.`
+    });
+
+    return res.status(200).json(
+        new ApiResponse(
+            200,
+            {},
+            "Verification OTP Sent Successfully"
+        )
+    );
+});
 
 const VerifyMobileNo = asyncHandler(async (req, res) => {
 
