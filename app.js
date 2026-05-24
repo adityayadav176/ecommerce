@@ -1,6 +1,7 @@
 import express from "express";
 import cookieParser from "cookie-parser";
 import cors from "cors"
+import { errorHandler } from "./src/middleware/error.middleware.js";
 
 const app = express();
 
@@ -37,4 +38,5 @@ app.use("/api/wishlist", wishListRouter);
 app.use("/api/everything", okkRouter);
 app.use("/api/category", categoryRouter);
 
+app.use(errorHandler);
 export default app;

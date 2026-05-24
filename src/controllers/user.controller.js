@@ -41,12 +41,12 @@ const generateAccessAndRefreshToken = async (userId) => {
 const registerUser = asyncHandler(async (req, res) => {
     const { fullName, email, password, mobileNo, role } = req.body || {};
 
-    // 1. Validate input
+    //  Validate input
     if (!fullName || !email || !password || !mobileNo) {
         throw new ApiError(400, "All required fields are missing");
     }
 
-    // 2. Check existing user
+    //  Check existing user
     const existedUser = await User.findOne({
         $or: [{ email }, { mobileNo }]
     });
@@ -55,7 +55,7 @@ const registerUser = asyncHandler(async (req, res) => {
         throw new ApiError(400, "User already exists");
     }
 
-    // 3. Handle avatar upload
+    //  Handle avatar upload
     const avatarLocalPath = req.files?.avatar?.[0]?.path;
 
     if (!avatarLocalPath) {
@@ -68,7 +68,7 @@ const registerUser = asyncHandler(async (req, res) => {
         throw new ApiError(500, "Avatar upload failed");
     }
 
-    // 4. Create user
+    //  Create user
     const user = await User.create({
         fullName,
         email,
@@ -81,21 +81,21 @@ const registerUser = asyncHandler(async (req, res) => {
         }
     });
 
-    // 5. Generate tokens
+    //  Generate tokens
     const accessToken = user.generateAccessToken();
     const refreshToken = user.generateRefreshToken();
 
     user.refreshToken = refreshToken;
     await user.save({ validateBeforeSave: false });
 
-    // 6. Clean response
+    //  Clean response
     const createdUser = await User.findById(user._id).select("-password -refreshToken");
 
     if (!createdUser) {
         throw new ApiError(500, "User creation failed");
     }
 
-    // 7. Email (non-blocking)
+    //  Email
     transporter.sendMail({
         from: process.env.SENDER_EMAIL,
         to: email,
@@ -103,7 +103,7 @@ const registerUser = asyncHandler(async (req, res) => {
         text: `Hi ${fullName}, your account is successfully created.`
     }).catch(err => console.log("Email error:", err));
 
-    // 8. Response
+    //  Response
     return res.status(201).json(
         new ApiResponse(
             201,
@@ -140,7 +140,7 @@ const loginUser = asyncHandler(async (req, res) => {
         await user.isPasswordCorrect(password);
     
     if (!isPasswordValid) {
-        throw new ApiError(401, "Invalid User Credentials");
+        throw new ApiError(400, "Invalid User Credentials");
     }
 
     const { accessToken, refreshToken } =
@@ -283,6 +283,10 @@ const VerifyEmail = asyncHandler(async (req, res) => {
 
 })
 
+const VerifyMobileNo = asyncHandler(async (req, res) => {
+
+})
+
 const generateRefreshToken = asyncHandler(async (req, res) => {
 
 })
@@ -295,5 +299,6 @@ export {
     updateProfilePicture,
     updateFullName,
     VerifyEmail,
-    generateRefreshToken
+    generateRefreshToken,
+    VerifyMobileNo
 }

@@ -19,7 +19,6 @@ const userSchema = new Schema({
         type: Number,
         unique: true,
         required: true,
-        match: [/^[0-9]{10}$/, "Please enter a valid 10-digit mobile number"]
     },
     password: {
         type: String,
