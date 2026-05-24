@@ -3,6 +3,7 @@ import { ApiError } from "../utils/ApiError.js"
 import { ApiResponse } from "../utils/ApiResponse.js";
 import { asyncHandler } from "../utils/asyncHandler.js";
 import { User } from "../model/user.model.js";
+import { transporter } from "../config/nodemailer.config.js"
 
 const verifyEmailOtp = asyncHandler(async (req, res) => {
 
@@ -124,6 +125,84 @@ const verifyEmailOtp = asyncHandler(async (req, res) => {
         );
 });
 
+const sendPasswordResetOtp = asyncHandler(async (req, res) => {
+
+    const userId = req.user?._id;
+
+    if (!userId) {
+        throw new ApiError(
+            401,
+            "Unauthorized Access Denied"
+        );
+    }
+
+    const user = await User.findById(userId);
+
+    if (!user) {
+        throw new ApiError(
+            404,
+            "User Not Found"
+        );
+    }
+
+    // already verified email check
+    if (!user.isEmailVerified) {
+        throw new ApiError(
+            400,
+            "Please Verify Your Email First"
+        );
+    }
+
+    // generate otp
+    const otpCode = Math.floor(
+        100000 + Math.random() * 900000
+    ).toString();
+
+
+
+
+    // remove previous otp
+    await Otp.deleteMany({
+        email: user.email,
+        purpose: "FORGET_PASSWORD",
+    });
+
+    // save otp
+    await Otp.create({
+        email: user.email,
+        otp: otpCode,
+        purpose: "FORGET_PASSWORD",
+        expireAt: new Date(
+            Date.now() + 2 * 60 * 1000
+        )
+    });
+
+    // send mail
+    await transporter.sendMail({
+        from: process.env.SENDER_EMAIL,
+        to: user.email,
+        subject: "Update Your Password",
+        text: `  <div style="font-family:sans-serif">
+            <h2>Password Reset OTP</h2>
+            <p>Your OTP is:</p>
+            <h1>${otpCode}</h1>
+            <p>This OTP expires in 2 minutes.</p>
+        </div>`
+    });
+
+
+    return res
+        .status(200)
+        .json(
+            new ApiResponse(
+                200,
+                {},
+                "Password Reset OTP Sent Successfully"
+            )
+        );
+});
+
 export {
-    verifyEmailOtp
+    verifyEmailOtp,
+    sendPasswordResetOtp
 }

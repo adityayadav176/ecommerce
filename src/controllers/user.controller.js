@@ -288,28 +288,92 @@ const updateProfilePicture = asyncHandler(async (req, res) => {
 
 const updatePassword = asyncHandler(async (req, res) => {
 
-    const userId = req.user._id
+    const userId = req.user?._id;
 
-    if(!userId) {
+    if (!userId) {
         throw new ApiError(401, "Unauthorized Access Denied");
     }
 
-    const {password} = req.body
+    const { otp, password } = req.body;
 
-    if(!password) {
-        throw new ApiError(400, "Password Is Required");
+    if (!otp || !password) {
+        throw new ApiError(400, "Password And Otp Are Required");
     }
 
-    const user = await User.findById(userId);
+    const user = await User.findById(userId).select("-password -refreshToken");
 
-    if(!user) {
+    if (!user) {
         throw new ApiError(404, "User Not Found");
     }
 
-    // update Password
-})
+    const otpDoc = await Otp.findOne({
+        email: user.email,
+        purpose: "FORGET_PASSWORD",
+    }).select("+otp");
 
-const VerifyEmail = asyncHandler(async (req, res) => {
+    if (!otpDoc) {
+        throw new ApiError(404, "Otp Not Found");
+    }
+
+    if (otpDoc.expireAt < Date.now()) {
+
+        await Otp.deleteOne({
+            _id: otpDoc._id
+        });
+
+        throw new ApiError(400, "Otp Expired");
+    }
+
+    if (otpDoc.attempts >= 5) {
+
+        await Otp.deleteOne({
+            _id: otpDoc._id
+        });
+
+        throw new ApiError(429, "Too Many Requests");
+    }
+
+    const isOtpCorrect = await otpDoc.isOtpCorrect(otp);
+
+    if (!isOtpCorrect) {
+
+        await Otp.updateOne(
+            { _id: otpDoc._id },
+            {
+                $inc: {
+                    attempts: 1
+                }
+            }
+        );
+
+        throw new ApiError(400, "Invalid Otp");
+    }
+
+    // update password
+    const existingUser = await User.findById(userId);
+
+    existingUser.password = password;
+
+    await existingUser.save();
+
+    // delete otp after success
+    await Otp.deleteOne({
+        _id: otpDoc._id
+    });
+
+    const updatedUser = await User.findById(userId)
+        .select("-password -refreshToken");
+
+    return res.status(200).json(
+        new ApiResponse(
+            200,
+            updatedUser,
+            "Password Updated Successfully"
+        )
+    );
+});
+
+const SendVerificationEmailOtp = asyncHandler(async (req, res) => {
 
     const userId = req.user?._id;
 
@@ -365,7 +429,7 @@ const VerifyEmail = asyncHandler(async (req, res) => {
     );
 });
 
-const VerifyMobileNo = asyncHandler(async (req, res) => {
+const VerifiedPhone = asyncHandler(async (req, res) => {
 
 })
 
@@ -377,10 +441,9 @@ export {
     registerUser,
     loginUser,
     logoutUser,
-    updatePassword,
     updateProfilePicture,
     updateFullName,
-    VerifyEmail,
+    updatePassword,
+    SendVerificationEmailOtp,
     generateRefreshToken,
-    VerifyMobileNo
 }

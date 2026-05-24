@@ -14,4 +14,24 @@ then(()=> {
     console.log("MonogoDb Connection Error !! ", err)
 })
 
+import { transporter } from "./src/config/nodemailer.config.js";
+
+const checkSMTPConnection = async () => {
+
+    try {
+
+        await transporter.verify();
+
+        console.log("SMTP SERVER IS READY ");
+
+    } catch (error) {
+
+        console.log("SMTP ERROR ");
+
+        console.log(error);
+    }
+};
+
+checkSMTPConnection();
+
 
