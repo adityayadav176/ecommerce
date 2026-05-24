@@ -21,9 +21,15 @@ const createCoupon = asyncHandler(async (req, res) => {
     // Required validation
     if (
         [description, code, discountType, discountValue, totalQuantity, perUserLimit, expireAt]
-        .some(item => item === undefined || item === null || item === "")
+            .some(item => item === undefined || item === null || item === "")
     ) {
         throw new ApiError(400, "All Fields Are Required");
+    }
+
+    const userId = req?.user?._id
+
+    if (!userId) {
+        throw new ApiError(401, "Unauthorized Access Denied");
     }
 
     // Validate arrays
@@ -77,13 +83,53 @@ const createCoupon = asyncHandler(async (req, res) => {
     );
 });
 
-const getAllCoupons = asyncHandler(async (Req, res) => {
+const getAllCoupons = asyncHandler(async (req, res) => {
+    const { page, limit, isActive, code } = req.query;
 
-})
+    const query = {};
 
-const getCouponsById = asyncHandler(async (req, res) => {
+    // filter active/inactive
+    if (isActive !== undefined) {
+        query.isActive = isActive === "true";
+    }
 
-})
+    // search by coupon code
+    if (code) {
+        query.code = { $regex: code, $options: "i" };
+    }
+
+    // pagination safe values
+    const pageNum = Number(page) || 1;
+    const limitNum = Number(limit) || 10;
+    const skip = (pageNum - 1) * limitNum;
+
+    const coupons = await Coupon.find(query)
+        .populate("applicableCategories", "name")
+        .populate("applicableProducts", "name price")
+        .sort({ createdAt: -1 })
+        .skip(skip)
+        .limit(limitNum);
+
+    const totalCoupons = await Coupon.countDocuments(query);
+
+    return res.status(200).json(
+        new ApiResponse(
+            200,
+            {
+                coupons,
+                pagination: {
+                    totalCoupons: totalCoupons,
+                    page: pageNum,
+                    limit: limitNum,
+                    totalPages: Math.ceil(totalCoupons / limitNum),
+                },
+            },
+            "Coupons fetched successfully"
+        )
+    );
+});
+
+
 
 const deleteCoupons = asyncHandler(async (req, res) => {
 
@@ -106,5 +152,7 @@ const updateCoupon = asyncHandler(async (req, res) => {
 })
 
 export {
-    createCoupon
+    createCoupon,
+    getAllCoupons,
+    getCouponsById
 }
