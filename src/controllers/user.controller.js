@@ -493,14 +493,6 @@ const verifyEmail = asyncHandler(async (req, res) => {
         );
 });
 
-const VerifiedPhone = asyncHandler(async (req, res) => {
-
-})
-
-const generateRefreshToken = asyncHandler(async (req, res) => {
-
-})
-
 const getUserData = asyncHandler(async (req, res) => {
     const userId = req?.user?._id
 
@@ -518,6 +510,14 @@ const getUserData = asyncHandler(async (req, res) => {
     .json(
         new ApiResponse(200, user, "Fetched User Successfully")
     )
+})
+
+const VerifiedPhone = asyncHandler(async (req, res) => {
+
+})
+
+const generateRefreshToken = asyncHandler(async (req, res) => {
+    
 })
 
 export {
