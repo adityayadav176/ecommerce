@@ -129,7 +129,27 @@ const getAllCoupons = asyncHandler(async (req, res) => {
     );
 });
 
+const getCouponsById = asyncHandler(async (req, res) => {
+    const { couponId } = req.params
 
+    if (!couponId || !mongoose.isValidObjectId(couponId)) {
+        throw new ApiError(400, "Invalid Coupon Id");
+    }
+
+    const coupon = await Coupon.findById(couponId)
+        .populate("applicableCategories", "name")
+        .populate("applicableProducts", "name price");
+
+
+    if (!coupon) {
+        throw new ApiError(404, "Coupon Not Found");
+    }
+
+    return res.status(200)
+        .json(
+            new ApiResponse(200, coupon, "Coupon Fetched Successfully")
+        )
+})
 
 const deleteCoupons = asyncHandler(async (req, res) => {
 
