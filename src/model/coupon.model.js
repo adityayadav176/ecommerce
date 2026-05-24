@@ -1,78 +1,84 @@
-import mongoose, {Schema} from "mongoose";
+import mongoose from "mongoose";
 
-const couponSchema = new Schema({
+const couponSchema = new mongoose.Schema(
+  {
     code: {
-        type: String,
-        unique: true,
-        uppercase: true,
-        required: true,
-        trim: true
+      type: String,
+      required: true,
+      unique: true,
+      uppercase: true,
+      trim: true,
     },
 
     description: {
-        type: String,
+      type: String,
     },
 
     discountType: {
-        type: String,
-        enum: ["Flat", "Percentage"],
-        required: true
+      type: String,
+      enum: ["PERCENTAGE", "FLAT", "FREE_SHIPPING"],
+      required: true,
     },
 
     discountValue: {
-        type: Number,
-        required: true
+      type: Number,
+      required: true,
     },
 
-    minimumOrderAmount: {
-        type: Number,
-        default: 0
+    minCartValue: {
+      type: Number,
+      default: 0,
     },
 
-    maximumDiscountAmount: {
-        type: Number,
-        default: 1
+    totalQuantity: {
+      type: Number,
+      required: true,
+      default: 100, // e.g. only 100 users can use this coupon
     },
 
-    usageLimit: {
-        type: Number,
-        default: 0
+    usedQuantity: {
+      type: Number,
+      default: 0,
     },
 
-    applicableUser: [
-        {
-            type: Schema.Types.ObjectId,
-            ref: "User"
-        }
-    ],
+    perUserLimit: {
+      type: Number,
+      default: 1, // each user can use 1 time
+    },
 
-    applicableProducts: [
-        {
-            type: Schema.Types.ObjectId,
-            ref: "Product"
-        }
-    ],
+    isStackable: {
+      type: Boolean,
+      default: false,
+    },
 
-    expiryDate: {
+    expireAt: {
         type: Date,
         required: true
     },
 
+    applicableProducts: [
+      {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "Product",
+      },
+    ],
+
+    applicableCategories: [
+      {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "Category",
+      },
+    ],
+
     isActive: {
-        type: Boolean,
-        default: true
+      type: Boolean,
+      default: true,
     },
+  },
+  { timestamps: true }
+);
 
-    createdBy: {
-        type: Schema.Types.ObjectId,
-        ref: "User"
-    },
-
-    usageLimit: {
-        type: Number,
-        default: 1
-    },
-},{timestamps: true})
-
-
-export const Coupon = mongoose.model("Coupon", couponSchema);
+const Coupon = mongoose.model("Coupon", couponSchema);
+export {
+    Coupon
+};

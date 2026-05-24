@@ -28,6 +28,7 @@ import wishListRouter from "./src/routes/wishlist.routes.js"
 import okkRouter from "./src/routes/okk.routes.js";
 import categoryRouter from "./src/routes/category.routes.js"
 import otpRouter from "./src/routes/otp.routes.js"
+import couponRouter from "./src/routes/coupon.routes.js"
 
 //router declaration
 
@@ -38,7 +39,8 @@ app.use("/api/cart", cartRouter);
 app.use("/api/wishlist", wishListRouter);
 app.use("/api/everything", okkRouter);
 app.use("/api/category", categoryRouter);
-app.use("/api/otp", otpRouter)
+app.use("/api/otp", otpRouter);
+app.use("/api/coupon", couponRouter);
 
 app.use(errorHandler);
 export default app;
