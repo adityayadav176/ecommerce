@@ -287,7 +287,6 @@ const updateProfilePicture = asyncHandler(async (req, res) => {
 });
 
 const updatePassword = asyncHandler(async (req, res) => {
-
     const userId = req.user?._id;
 
     if (!userId) {
@@ -297,13 +296,17 @@ const updatePassword = asyncHandler(async (req, res) => {
     const { otp, password } = req.body;
 
     if (!otp || !password) {
-        throw new ApiError(400, "Password And Otp Are Required");
+        throw new ApiError(400, "Password and OTP are required");
     }
 
-    const user = await User.findById(userId).select("-password -refreshToken");
+    if (password.length < 6) {
+        throw new ApiError(400, "Password must be at least 6 characters");
+    }
+
+    const user = await User.findById(userId);
 
     if (!user) {
-        throw new ApiError(404, "User Not Found");
+        throw new ApiError(404, "User not found");
     }
 
     const otpDoc = await Otp.findOne({
@@ -312,54 +315,38 @@ const updatePassword = asyncHandler(async (req, res) => {
     }).select("+otp");
 
     if (!otpDoc) {
-        throw new ApiError(404, "Otp Not Found");
+        throw new ApiError(404, "OTP not found");
     }
 
     if (otpDoc.expireAt < Date.now()) {
-
-        await Otp.deleteOne({
-            _id: otpDoc._id
-        });
-
-        throw new ApiError(400, "Otp Expired");
+        throw new ApiError(400, "OTP expired");
+        await Otp.deleteOne({ _id: otpDoc._id });
     }
 
     if (otpDoc.attempts >= 5) {
-
-        await Otp.deleteOne({
-            _id: otpDoc._id
-        });
-
-        throw new ApiError(429, "Too Many Requests");
+        throw new ApiError(429, "Too many attempts");
+        await Otp.deleteOne({ _id: otpDoc._id });
     }
 
     const isOtpCorrect = await otpDoc.isOtpCorrect(otp);
 
     if (!isOtpCorrect) {
 
-        await Otp.updateOne(
-            { _id: otpDoc._id },
-            {
-                $inc: {
-                    attempts: 1
-                }
-            }
-        );
+    otpDoc.attempts += 1;
+    await otpDoc.save();
 
-        throw new ApiError(400, "Invalid Otp");
-    }
+    throw new ApiError(
+        400,
+        `Invalid OTP. Attempts: ${otpDoc.attempts}/5`
+    );
+}
 
-    // update password
-    const existingUser = await User.findById(userId);
+    // Update password
+    user.password = password;
+    await user.save();
 
-    existingUser.password = password;
-
-    await existingUser.save();
-
-    // delete otp after success
-    await Otp.deleteOne({
-        _id: otpDoc._id
-    });
+    // Delete OTP
+    await Otp.deleteOne({ _id: otpDoc._id });
 
     const updatedUser = await User.findById(userId)
         .select("-password -refreshToken");
