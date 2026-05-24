@@ -1,10 +1,10 @@
 import mongoose from "mongoose";
 import { User } from "../model/user.model.js";
-import {uploadOnCloudinary} from "../config/cloudinary.js"
+import { uploadOnCloudinary } from "../config/cloudinary.js"
 import { ApiError } from "../utils/ApiError.js";
 import { ApiResponse } from "../utils/ApiResponse.js"
-import {asyncHandler} from "../utils/asyncHandler.js"
-import {transporter} from "../config/nodemailer.config.js"
+import { asyncHandler } from "../utils/asyncHandler.js"
+import { transporter } from "../config/nodemailer.config.js"
 import cloudinary from "cloudinary"
 
 
@@ -138,7 +138,7 @@ const loginUser = asyncHandler(async (req, res) => {
 
     const isPasswordValid =
         await user.isPasswordCorrect(password);
-    
+
     if (!isPasswordValid) {
         throw new ApiError(400, "Invalid User Credentials");
     }
@@ -199,15 +199,15 @@ const logoutUser = asyncHandler(async (req, res) => {
 });
 
 const updateFullName = asyncHandler(async (req, res) => {
-    const {fullName} = req.body
+    const { fullName } = req.body
 
-    if(!fullName) {
+    if (!fullName) {
         throw new ApiError(409, "FullName Are Required");
     }
 
     const userId = req.user?._id
 
-    if(!userId) {
+    if (!userId) {
         throw new ApiError(401, "Unauthorized Access Denied");
     }
 
@@ -221,59 +221,69 @@ const updateFullName = asyncHandler(async (req, res) => {
         }
     )
 
-    if(!updatedFullName) {
+    if (!updatedFullName) {
         throw new ApiError(500, "Internal Server Error");
     }
 
     return res.status(200)
-    .json(
-        new ApiResponse(200, updatedFullName, "FullName Updated Successfully")
-    )
+        .json(
+            new ApiResponse(200, updatedFullName, "FullName Updated Successfully")
+        )
 })
 
 const updateProfilePicture = asyncHandler(async (req, res) => {
-    const userId = req.user?._id
 
-    if(!userId) {
+    const userId = req.user?._id;
+
+    if (!userId) {
         throw new ApiError(401, "Unauthorized Access Denied");
     }
 
-    const avatarLocalPath = req.files?.avatar?.[0]?.path
+    // multer file
+    const avatarLocalPath = req.files?.avatar?.[0]?.path;
 
-    if(!avatarLocalPath) {
+    if (!avatarLocalPath) {
         throw new ApiError(400, "Avatar File Is Required");
     }
 
+    // upload new image
     const uploadResult = await uploadOnCloudinary(avatarLocalPath);
 
-    if(!uploadResult) {
+    if (!uploadResult?.url || !uploadResult?.public_id) {
         throw new ApiError(500, "Error While Uploading Avatar");
     }
 
-    const user = await User.findById(userId).select("-password -refreshToken");
+    // find user
+    const user = await User.findById(userId)
+        .select("-password -refreshToken");
 
-    if(!user) {
+    if (!user) {
         throw new ApiError(404, "User Not Found");
     }
 
-    if(user.avatar && user.avatar.length >= 0) {
-        for(const img of user.avatar) {
-           await cloudinary.uploader.destroy(img.public_id);
-        }
+    // delete old avatar from cloudinary
+    if (user.avatar?.public_id) {
+        await cloudinary.uploader.destroy(user.avatar.public_id);
     }
 
+    // update avatar
     user.avatar = {
         url: uploadResult.url,
         public_id: uploadResult.public_id
     };
 
-    await user.save();
+    await user.save({ validateBeforeSave: false });
 
-    return res.status(200)
-    .json(
-        new ApiResponse(200, user, "Avatar Change Successfully")
-    )
-})
+    return res
+        .status(200)
+        .json(
+            new ApiResponse(
+                200,
+                user,
+                "Avatar Changed Successfully"
+            )
+        );
+});
 
 const updatePassword = asyncHandler(async (req, res) => {
 
