@@ -21,8 +21,7 @@ const createCoupon = asyncHandler(async (req, res) => {
     // Required validation
     if (
         [description, code, discountType, discountValue, totalQuantity, perUserLimit, expireAt]
-            .some(item => item === undefined || item === null || item === "")
-    ) {
+            .some(item => item === undefined || item === null || item === "")) {
         throw new ApiError(400, "All Fields Are Required");
     }
 
@@ -52,6 +51,10 @@ const createCoupon = asyncHandler(async (req, res) => {
         throw new ApiError(400, "Quantity Must Be Greater Than 0");
     }
 
+    if (perUserLimit <= 0) {
+        throw new ApiError(400, "PerUserLimit Must Be Greater Than 0");
+    }
+
     const normalizedCode = code.trim().toUpperCase();
 
     // Check duplicate
@@ -62,7 +65,7 @@ const createCoupon = asyncHandler(async (req, res) => {
 
     // Expiry validation
     if (new Date(expireAt).getTime() < Date.now()) {
-        throw new ApiError(400, "Coupon Already Expired");
+        throw new ApiError(409, "Coupon Already Expired");
     }
 
     const coupon = await Coupon.create({
@@ -152,22 +155,120 @@ const getCouponsById = asyncHandler(async (req, res) => {
 })
 
 const deleteCoupons = asyncHandler(async (req, res) => {
-    const {couponId} = req.params
+    const { couponId } = req.params
 
-    if(!couponId || !mongoose.isValidObjectId(couponId)) {
+    if (!couponId || !mongoose.isValidObjectId(couponId)) {
         throw new ApiError(400, "Invalid CouponId");
     }
 
     const coupon = await Coupon.findByIdAndDelete(couponId);
 
-    if(!coupon) {
+    if (!coupon) {
         throw new ApiError(404, "Coupon Not Found");
     }
 
     return res.status(200)
-    .json(
-        new ApiResponse(200, {}, "Coupon Deleted Successfully")
+        .json(
+            new ApiResponse(200, {}, "Coupon Deleted Successfully")
+        )
+})
+
+const updateCoupon = asyncHandler(async (req, res) => {
+    const {
+        description,
+        code,
+        discountType,
+        discountValue,
+        totalQuantity,
+        perUserLimit,
+        applicableProducts,
+        applicableCategories,
+        expireAt,
+        minCartValue
+    } = req.body;
+
+    if (
+        [description, code, discountType, discountValue, totalQuantity, perUserLimit, expireAt]
+            .some(item => item === undefined || item === null || item === "")) {
+        throw new ApiError(400, "All Fields Are Required");
+    }
+
+    const {couponId} = req.params
+
+    if(!couponId || !mongoose.isValidObjectId(couponId)) {
+        throw new ApiError(400, "Coupon Does't Exists");
+    }
+
+    const existingCoupon = await Coupon.findById(couponId);
+    if(!existingCoupon) {
+        throw new ApiError(404, "Coupon Not Found");
+    }
+
+    const userId = req?.user?._id
+
+    if (!userId) {
+        throw new ApiError(401, "Unauthorized Access Denied");
+    }
+
+    if (!Array.isArray(applicableCategories) || !Array.isArray(applicableProducts)) {
+        throw new ApiError(400, "Invalid Categories or Products Format");
+    }
+
+    if (!["PERCENTAGE", "FLAT", "FREE_SHIPPING"].includes(discountType)) {
+        throw new ApiError(400, "Invalid Discount Type");
+    }
+
+    // Discount value validation
+    if (discountType !== "FREE_SHIPPING" && discountValue <= 0) {
+        throw new ApiError(400, "Discount Value Must Be Greater Than 0");
+    }
+
+    // Quantity validation
+    if (totalQuantity <= 0) {
+        throw new ApiError(400, "Quantity Must Be Greater Than 0");
+    }
+
+    if (perUserLimit <= 0) {
+        throw new ApiError(400, "PerUserLimit Must Be Greater Than 0");
+    }
+
+    const normalizedCode = code.trim().toUpperCase();
+
+     // Expiry validation
+    if (new Date(expireAt).getTime() < Date.now()) {
+        throw new ApiError(400, "Coupon Already Expired");
+    }
+
+    const updatedCoupon = await Coupon.findByIdAndUpdate(
+        couponId,
+        {
+            $set: {
+                description,
+                code: normalizedCode,
+                discountType,
+                discountValue,
+                totalQuantity,
+                perUserLimit,
+                applicableCategories,
+                applicableProducts,
+                expireAt,
+                minCartValue
+            }
+        },
+        {
+            new: true,
+        }
     )
+
+    if(!updatedCoupon) {
+        throw new ApiError(500, "Internal Server Error While Updating Coupon");
+    }
+
+    return res.status(200)
+    .json(
+        new ApiResponse(200, updatedCoupon, "Coupon Updated Successfully")
+    )
+
 })
 
 const applyCoupon = asyncHandler(async (req, res) => {
@@ -182,13 +283,12 @@ const checkCouponEligibility = asyncHandler(async (req, res) => {
 
 })
 
-const updateCoupon = asyncHandler(async (req, res) => {
 
-})
 
 export {
     createCoupon,
     getAllCoupons,
     getCouponsById,
-    deleteCoupons
+    deleteCoupons,
+    updateCoupon
 }
