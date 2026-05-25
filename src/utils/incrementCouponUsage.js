@@ -1,4 +1,4 @@
-import { Coupon } from "../model/coupon.model.ja"
+import { Coupon } from "../model/coupon.model.js"
 import { ApiError } from "./ApiError.js";
 
 const incrementCouponUsage = async (couponId) => {

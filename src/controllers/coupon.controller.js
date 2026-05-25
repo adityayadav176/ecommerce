@@ -3,6 +3,9 @@ import mongoose from "mongoose";
 import { asyncHandler } from "../utils/asyncHandler.js";
 import { ApiError } from "../utils/ApiError.js";
 import { ApiResponse } from "../utils/ApiResponse.js";
+import { checkCouponEligibility } from "../utils/checkCouponEligibility.js"
+import { incrementCouponUsage } from "../utils/incrementCouponUsage.js"
+
 
 const createCoupon = asyncHandler(async (req, res) => {
     const {
@@ -193,14 +196,14 @@ const updateCoupon = asyncHandler(async (req, res) => {
         throw new ApiError(400, "All Fields Are Required");
     }
 
-    const {couponId} = req.params
+    const { couponId } = req.params
 
-    if(!couponId || !mongoose.isValidObjectId(couponId)) {
+    if (!couponId || !mongoose.isValidObjectId(couponId)) {
         throw new ApiError(400, "Coupon Does't Exists");
     }
 
     const existingCoupon = await Coupon.findById(couponId);
-    if(!existingCoupon) {
+    if (!existingCoupon) {
         throw new ApiError(404, "Coupon Not Found");
     }
 
@@ -234,7 +237,7 @@ const updateCoupon = asyncHandler(async (req, res) => {
 
     const normalizedCode = code.trim().toUpperCase();
 
-     // Expiry validation
+    // Expiry validation
     if (new Date(expireAt).getTime() < Date.now()) {
         throw new ApiError(400, "Coupon Already Expired");
     }
@@ -260,19 +263,73 @@ const updateCoupon = asyncHandler(async (req, res) => {
         }
     )
 
-    if(!updatedCoupon) {
+    if (!updatedCoupon) {
         throw new ApiError(500, "Internal Server Error While Updating Coupon");
     }
 
     return res.status(200)
-    .json(
-        new ApiResponse(200, updatedCoupon, "Coupon Updated Successfully")
-    )
+        .json(
+            new ApiResponse(200, updatedCoupon, "Coupon Updated Successfully")
+        )
 
 })
 
 const applyCoupon = asyncHandler(async (req, res) => {
+    const { cartTotal, couponCode, productIds = [], categoryIds = []} = req.body
 
+    const userId = req.user._id
+
+    if(!userId) {
+        throw new ApiError(401, "Unauthorized Access Denied");
+    }
+
+    if(!couponCode) {
+        throw new ApiError(400, "CouponCode Is Required");
+    }
+
+    if(!cartTotal === undefined || cartTotal <= 0) {
+        throw new ApiError(400, "Invalid Cart Total");
+    }
+
+    const coupon = await checkCouponEligibility({
+        couponCode,
+        cartTotal,
+        productIds,
+        categoryIds,
+        userId
+    })
+
+    let discountAmount = 0;
+
+    if(coupon.discountType === "FLAT") {
+        discountAmount = coupon.discountValue;
+    }
+
+    else if(coupon.discountType ===  "PERCENTAGE") {
+        discountAmount = (cartTotal * coupon.discountAmount) / 100; 
+    }
+
+    else if(coupon.discountType === "FREE_SHIPPING") {
+        discountAmount = 0;
+    }
+
+    const finalPrice = Math.max(cartTotal - discountAmount, 0);
+
+    return res.status(200)
+    .json(
+        new ApiResponse(
+            200, 
+            {
+                couponId: coupon._id,
+                couponCode: coupon.code,
+                discountType: coupon.discountType,
+                discountAmount, 
+                originalPrice: cartTotal,
+                finalPrice
+            },
+            "Coupon Applied Successfully"
+        )
+    )
 })
 
 export {
@@ -280,5 +337,6 @@ export {
     getAllCoupons,
     getCouponsById,
     deleteCoupons,
-    updateCoupon
+    updateCoupon,
+    applyCoupon
 }
