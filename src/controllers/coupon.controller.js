@@ -152,7 +152,22 @@ const getCouponsById = asyncHandler(async (req, res) => {
 })
 
 const deleteCoupons = asyncHandler(async (req, res) => {
+    const {couponId} = req.params
 
+    if(!couponId || !mongoose.isValidObjectId(couponId)) {
+        throw new ApiError(400, "Invalid CouponId");
+    }
+
+    const coupon = await Coupon.findByIdAndDelete(couponId);
+
+    if(!coupon) {
+        throw new ApiError(404, "Coupon Not Found");
+    }
+
+    return res.status(200)
+    .json(
+        new ApiResponse(200, {}, "Coupon Deleted Successfully")
+    )
 })
 
 const applyCoupon = asyncHandler(async (req, res) => {
@@ -174,5 +189,6 @@ const updateCoupon = asyncHandler(async (req, res) => {
 export {
     createCoupon,
     getAllCoupons,
-    getCouponsById
+    getCouponsById,
+    deleteCoupons
 }
