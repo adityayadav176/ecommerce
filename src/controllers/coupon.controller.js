@@ -275,16 +275,6 @@ const applyCoupon = asyncHandler(async (req, res) => {
 
 })
 
-const IncrementCouponUsage = asyncHandler(async (Req, res) => {
-
-})
-
-const checkCouponEligibility = asyncHandler(async (req, res) => {
-
-})
-
-
-
 export {
     createCoupon,
     getAllCoupons,
