@@ -1,5 +1,5 @@
-import { Coupon } from "../model/coupon.model"
-import { ApiError } from "./ApiError";
+import { Coupon } from "../model/coupon.model.ja"
+import { ApiError } from "./ApiError.js";
 
 const incrementCouponUsage = async (couponId) => {
     const coupon = await Coupon.findByIdAndUpdate(
