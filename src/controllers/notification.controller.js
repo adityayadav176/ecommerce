@@ -150,9 +150,29 @@ const getUserNotification = asyncHandler(async (req, res) => {
     );
 });
 
+const getSingleNotification = asyncHandler(async (req, res) => {
+    const {notificationId} = req.params
+
+    if(!notificationId || !mongoose.isValidObjectId(notificationId)) {
+        throw new ApiError(400, "Invalid NotificationId");
+    }
+
+    const existingNotification = await Notification.findById(notificationId);
+
+    if(!existingNotification) {
+        throw new ApiError(404, "Notification Not Found");
+    }
+
+    return res.status(200)
+    .json(
+        new ApiResponse(200, existingNotification, "Notification Fetched Successfully")
+    )
+}) 
+
 export {
     createNotification,
     updateNotification,
     deleteNotification,
-    getUserNotification
+    getUserNotification,
+    getSingleNotification
 };
