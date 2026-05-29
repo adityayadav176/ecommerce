@@ -4,103 +4,124 @@ import { ApiError } from "../utils/ApiError.js";
 import { ApiResponse } from "../utils/ApiResponse.js";
 import { asyncHandler } from "../utils/asyncHandler.js";
 
-const createNotification = asyncHandler((req, res) => {
-    const { title, message, type } = req.body
+const createNotification = asyncHandler(async (req, res) => {
+    const { title, message, type } = req.body;
 
-    if ([title, message, type].some(item => item == null || item == undefined || item == "")) {
-        throw new ApiError(400, "Title Message And Type Are Required");
+    if ([title, message, type].some((item) => item == null || item == undefined || item.trim() === "")) {
+        throw new ApiError(400, "Title, Message and Type are required");
     }
 
-    const userId = req.user._id;
+    const userId = req.user?._id;
 
     if (!userId) {
         throw new ApiError(401, "Unauthorized Access Denied");
     }
 
-    const NewNotification = await Notification.create({
+    const newNotification = await Notification.create({
+        user: userId,
         title,
         message,
         type
-    })
+    });
 
-    if (!NewNotification) {
-        throw new ApiError(500, "Internal Server Error While Creating Notification");
+    if (!newNotification) {
+        throw new ApiError(
+            500,
+            "Internal Server Error While Creating Notification"
+        );
     }
 
-    return res.status(201)
-        .json(
-            new ApiResponse(201, NewNotification, "New Notification Created")
+    return res.status(201).json(
+        new ApiResponse(
+            201,
+            newNotification,
+            "New Notification Created"
         )
+    );
 });
 
+const updateNotification = asyncHandler(async (req, res) => {
+    const { title, message, type } = req.body;
 
-
-const updateNotification = asyncHandler((req, res) => {
-    const {title, message, type} = req.body
-
-    if([title, message, type].some(item => item == null || item == undefined || item == ""));
-
-    const userId = req.user._id;
-
-    if(!userId) {
-        throw new ApiError(401, "Unauthorized Access Denied");
+    if ([title, message, type].some((item) => item == null || item == undefined || item.trim() === "")) {
+        throw new ApiError(400, "Title, Message and Type are required");
     }
 
-    const notificationId = req.params;
-
-    if(!notificationId || !mongoose.isValidObjectId(notificationId)) {
-        throw new ApiError(400, "Invalid Notification Id");
-    }
-
-    const ExistingNotification = await Notification.findByIdAndUpdate(
-        notificationId,
-        {
-            title,
-            message,
-            type
-        },
-        {
-            new: true
-        }
-    )
-
-    if(!ExistingNotification) {
-        throw new ApiError(404, "Notification Not Found Or Updated");
-    }
-
-    return res.status(200)
-    .json(
-        new ApiResponse(200, ExistingNotification, "Notification Updated Successfully")
-    )
-})
-
-const deleteNotification = asyncHandler((req, res) => {
-    const userId = req.user._id;
+    const userId = req.user?._id;
 
     if (!userId) {
         throw new ApiError(401, "Unauthorized Access Denied");
     }
 
-    const { NotificationId } = req.params;
+    const { notificationId } = req.params;
 
-    if (!NotificationId || !mongoose.isValidObjectId(notificationId)) {
-        throw new ApiError(404, "Notification Not Found");
+    if (!notificationId || !mongoose.isValidObjectId(notificationId)) {
+        throw new ApiError(400, "Invalid Notification Id");
     }
 
-    const deletedNotification = Notification.findByIdAndDelete(NotificationId);
+    const existingNotification =
+        await Notification.findByIdAndUpdate(
+            notificationId,
+            {
+                title,
+                message,
+                type
+            },
+            {
+                new: true,
+                runValidators: true
+            }
+        );
 
-    if (!deleteNotification) {
-        throw new ApiError(404, "Notification Not Found Or Deleted");
+    if (!existingNotification) {
+        throw new ApiError(
+            404,
+            "Notification Not Found Or Not Updated"
+        );
     }
 
-    return res.status(200)
-    .json(
-        new ApiResponse(200, {}, "Notification Deleted Successfully")
-    )
+    return res.status(200).json(
+        new ApiResponse(
+            200,
+            existingNotification,
+            "Notification Updated Successfully"
+        )
+    );
+});
+
+const deleteNotification = asyncHandler(async (req, res) => {
+    const userId = req.user?._id;
+
+    if (!userId) {
+        throw new ApiError(401, "Unauthorized Access Denied");
+    }
+
+    const { notificationId } = req.params;
+
+    if (!notificationId || !mongoose.isValidObjectId(notificationId)) {
+        throw new ApiError(400, "Invalid Notification Id");
+    }
+
+    const deletedNotification = await Notification.findByIdAndDelete(notificationId);
+
+    if (!deletedNotification) {
+        throw new ApiError(
+            404,
+            "Notification Not Found Or Already Deleted"
+        );
+    }
+
+    return res.status(200).json(
+        new ApiResponse(
+            200,
+            {},
+            "Notification Deleted Successfully"
+        )
+    );
 });
 
 export {
     createNotification,
     updateNotification,
     deleteNotification
-}
+};
