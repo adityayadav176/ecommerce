@@ -157,7 +157,10 @@ const getSingleNotification = asyncHandler(async (req, res) => {
         throw new ApiError(400, "Invalid NotificationId");
     }
 
-    const existingNotification = await Notification.findById(notificationId);
+    const existingNotification = await Notification.findOne({
+        _id: notificationId,
+        user: userId
+    });
 
     if(!existingNotification) {
         throw new ApiError(404, "Notification Not Found");
