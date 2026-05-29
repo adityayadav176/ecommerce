@@ -172,10 +172,53 @@ const getSingleNotification = asyncHandler(async (req, res) => {
     )
 }) 
 
+const markAsRead = asyncHandler(async (req, res) => {
+    const userId = req.user?._id;
+
+    if (!userId) {
+        throw new ApiError(401, "Unauthorized Access Denied");
+    }
+
+    const { notificationId } = req.params;
+
+    if (
+        !notificationId ||
+        !mongoose.isValidObjectId(notificationId)
+    ) {
+        throw new ApiError(400, "Invalid Notification Id");
+    }
+
+    const notification = await Notification.findOneAndUpdate(
+        {
+            _id: notificationId,
+            user: userId
+        },
+        {
+            isRead: true
+        },
+        {
+            new: true
+        }
+    );
+
+    if (!notification) {
+        throw new ApiError(404, "Notification Not Found");
+    }
+
+    return res.status(200).json(
+        new ApiResponse(
+            200,
+            notification,
+            "Notification Marked As Read Successfully"
+        )
+    );
+});
+
 export {
     createNotification,
     updateNotification,
     deleteNotification,
     getUserNotification,
-    getSingleNotification
+    getSingleNotification,
+    markAsRead
 };
