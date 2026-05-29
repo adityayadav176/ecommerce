@@ -120,8 +120,39 @@ const deleteNotification = asyncHandler(async (req, res) => {
     );
 });
 
+const getUserNotification = asyncHandler(async (req, res) => {
+    // pagination required
+    const userId = req.user?._id;
+
+    if (!userId) {
+        throw new ApiError(401, "Unauthorized Access Denied");
+    }
+
+    const notifications = await Notification.find({
+        user: userId
+    }).sort({ createdAt: -1 });
+
+    if (!notifications || notifications.length === 0) {
+        throw new ApiError(404, "Notifications Not Found");
+    }
+
+    const totalNotification = await Notification.countDocuments({
+        user: userId
+    })
+
+    return res.status(200).json(
+        new ApiResponse(
+            200,
+            notifications,
+            totalNotification,
+            "Notifications Fetched Successfully"
+        )
+    );
+});
+
 export {
     createNotification,
     updateNotification,
-    deleteNotification
+    deleteNotification,
+    getUserNotification
 };
