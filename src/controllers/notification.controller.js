@@ -214,11 +214,40 @@ const markAsRead = asyncHandler(async (req, res) => {
     );
 });
 
+const markAllAsRead = asyncHandler(async (req, res) => {
+    const userId = req.user?._id;
+
+    if (!userId) {
+        throw new ApiError(401, "Unauthorized Access Denied");
+    }
+
+    const updatedNotifications = await Notification.updateMany(
+        {
+            user: userId,
+            isRead: false
+        },
+        {
+            $set: {
+                isRead: true
+            }
+        }
+    );
+
+    return res.status(200).json(
+        new ApiResponse(
+            200,
+            updatedNotifications,
+            "All Notifications Marked As Read Successfully"
+        )
+    );
+});
+
 export {
     createNotification,
     updateNotification,
     deleteNotification,
     getUserNotification,
     getSingleNotification,
-    markAsRead
+    markAsRead,
+    markAllAsRead
 };
