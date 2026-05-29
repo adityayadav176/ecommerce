@@ -52,7 +52,7 @@ const updateNotification = asyncHandler((req, res) => {
         throw new ApiError(400, "Invalid Notification Id");
     }
 
-    const ExistingNotification = Notification.findByIdAndUpdate(
+    const ExistingNotification = await Notification.findByIdAndUpdate(
         notificationId,
         {
             title,
@@ -74,7 +74,33 @@ const updateNotification = asyncHandler((req, res) => {
     )
 })
 
+const deleteNotification = asyncHandler((req, res) => {
+    const userId = req.user._id;
+
+    if (!userId) {
+        throw new ApiError(401, "Unauthorized Access Denied");
+    }
+
+    const { NotificationId } = req.params;
+
+    if (!NotificationId || !mongoose.isValidObjectId(notificationId)) {
+        throw new ApiError(404, "Notification Not Found");
+    }
+
+    const deletedNotification = Notification.findByIdAndDelete(NotificationId);
+
+    if (!deleteNotification) {
+        throw new ApiError(404, "Notification Not Found Or Deleted");
+    }
+
+    return res.status(200)
+    .json(
+        new ApiResponse(200, {}, "Notification Deleted Successfully")
+    )
+});
+
 export {
     createNotification,
-    updateNotification
+    updateNotification,
+    deleteNotification
 }
