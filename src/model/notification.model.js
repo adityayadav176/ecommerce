@@ -8,11 +8,15 @@ const notificationSchema = new mongoose.Schema({
     },
 
     title: {
-        type: String
+        type: String,
+        required: true,
+        trim: true
     },
 
     message: {
-        type: String
+        type: String,
+        required: true,
+        trim: true
     },
 
     type: {
@@ -22,7 +26,8 @@ const notificationSchema = new mongoose.Schema({
             "Refund",
             "Offer",
             "System"
-        ]
+        ],
+        required: true
     },
 
     isRead: {
