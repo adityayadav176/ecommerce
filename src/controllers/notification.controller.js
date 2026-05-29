@@ -242,6 +242,27 @@ const markAllAsRead = asyncHandler(async (req, res) => {
     );
 });
 
+const getUnreadNotificationCount = asyncHandler(async (req, res) => {
+    const userId = req.user?._id;
+
+    if (!userId) {
+        throw new ApiError(401, "Unauthorized Access Denied");
+    }
+
+    const unreadCount = await Notification.countDocuments({
+        user: userId,
+        isRead: false
+    });
+
+    return res.status(200).json(
+        new ApiResponse(
+            200,
+            { unreadCount },
+            "Unread Notification Count Fetched Successfully"
+        )
+    );
+});
+
 export {
     createNotification,
     updateNotification,
@@ -249,5 +270,6 @@ export {
     getUserNotification,
     getSingleNotification,
     markAsRead,
-    markAllAsRead
+    markAllAsRead,
+    getUnreadNotificationCount
 };
