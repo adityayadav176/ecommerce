@@ -29,6 +29,7 @@ import okkRouter from "./src/routes/okk.routes.js";
 import categoryRouter from "./src/routes/category.routes.js"
 import otpRouter from "./src/routes/otp.routes.js"
 import couponRouter from "./src/routes/coupon.routes.js"
+import orderRouter from "./src/routes/order.routes.js"
 
 //router declaration
 
@@ -41,6 +42,7 @@ app.use("/api/everything", okkRouter);
 app.use("/api/category", categoryRouter);
 app.use("/api/otp", otpRouter);
 app.use("/api/coupon", couponRouter);
+app.use("/api/order", orderRouter);
 
 app.use(errorHandler);
 export default app;

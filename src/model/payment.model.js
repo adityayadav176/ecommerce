@@ -1,44 +1,55 @@
-import mongoose, {Schema} from "mongoose";
+import mongoose, { Schema } from "mongoose";
 
-const PaymentSchema = new Schema({
+const PaymentSchema = new Schema(
+  {
     user: {
-        type: mongoose.Schema.Types.ObjectId,
-        ref: "User"
-    },
-    order: {
-        type: mongoose.Schema.Types.ObjectId,
-        ref: "Order"
-    },
-    paymentId: {
-        type: String
-    },
-    paymentMethod: {
-        type: String,
-        enum: [
-            "UPI",
-            "CARD",
-            "NET BANKING",
-            "COD",
-            "WALLET"
-        ]
+      type: Schema.Types.ObjectId,
+      ref: "User",
+      required: true,
     },
 
-      paymentStatus: {
-        type: String,
-        enum: [
-            "Pending",
-            "Success",
-            "Failed",
-            "Refunded"
-        ],
-        default: "Pending"
+    order: {
+      type: Schema.Types.ObjectId,
+      ref: "Order",
+      required: true,
+    },
+
+    razorpay_order_id: {
+      type: String,
+      required: true,
+    },
+
+    razorpay_payment_id: {
+      type: String,
+    },
+
+    razorpay_signature: {
+      type: String,
+    },
+
+    paymentMethod: {
+      type: String,
+      enum: ["UPI", "CARD", "NETBANKING", "WALLET", "COD"],
+      default: "UPI",
+    },
+
+    paymentStatus: {
+      type: String,
+      enum: ["CREATED", "PENDING", "SUCCESS", "FAILED", "REFUNDED"],
+      default: "CREATED",
     },
 
     amount: {
-        type: Number,
-        required: true
-    }
+      type: Number,
+      required: true,
+    },
 
-},{timestamps:true})
+    currency: {
+      type: String,
+      default: "INR",
+    },
+  },
+  { timestamps: true }
+);
 
 export const Payment = mongoose.model("Payment", PaymentSchema);
