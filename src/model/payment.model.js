@@ -27,12 +27,6 @@ const PaymentSchema = new Schema(
       type: String,
     },
 
-    paymentMethod: {
-      type: String,
-      enum: ["UPI", "CARD", "NETBANKING", "WALLET", "COD"],
-      default: "UPI",
-    },
-
     paymentStatus: {
       type: String,
       enum: ["CREATED", "PENDING", "SUCCESS", "FAILED", "REFUNDED"],

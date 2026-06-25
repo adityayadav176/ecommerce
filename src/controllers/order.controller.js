@@ -1,11 +1,12 @@
 import mongoose from "mongoose";
+import { razorpay } from "../config/razorpay.js";
 import { Cart } from "../model/cart.model.js";
 import { Order } from "../model/order.model.js";
 import { Address } from "../model/address.model.js";
+import { Payment } from "../model/payment.model.js";
 import { ApiError } from "../utils/ApiError.js";
 import { ApiResponse } from "../utils/ApiResponse.js";
 import { asyncHandler } from "../utils/asyncHandler.js";
-import { User } from "../model/user.model.js";
 
 const createOrder = asyncHandler(async (req, res) => {
     const userId = req.user._id;
@@ -29,16 +30,10 @@ const createOrder = asyncHandler(async (req, res) => {
         throw new ApiError(404, "Address Not Found");
     }
 
-    const cart = await Cart.findOne({
-        user: userId
-    }).populate("items.product");
+    const cart = await Cart.findOne({ user: userId }).populate("items.product");
 
-    if (!cart) {
-        throw new ApiError(404, "Cart Not Found");
-    }
-
-    if (!cart.items.length) {
-        throw new ApiError(400, "Cart Is Empty");
+    if (!cart || !cart.items.length) {
+        throw new ApiError(404, "Cart Is Empty");
     }
 
     const orderItems = cart.items.map((item) => ({
@@ -58,15 +53,35 @@ const createOrder = asyncHandler(async (req, res) => {
         paymentMethod
     });
 
-    if (!order) {
-        throw new ApiError(500, "Failed To Create Order");
+    if(paymentMethod === "COD") {
+        return res.status(200).json(
+            new ApiResponse(201, order, "Order Created (COD)")
+        )
     }
 
+    const options = {
+        amount: order.totalPrice * 100,
+        currency: "INR",
+        receipt: `order_rcpt_${Date.now()}`
+    };
+
+    const razorpayOrder = await razorpay.orders.create(options)
+
+    const payment = await Payment.create({
+        user: userId,
+        order: order._id,
+        razorpay_order_id: razorpayOrder.id,
+        amount: order.totalPrice,
+        currency: "INR",
+        paymentStatus: "CREATED"
+    });
+
     return res.status(201).json(
-        new ApiResponse(
-            201,
+        new ApiResponse(201, {
             order,
-            "Order Created Successfully"
+            razorpayOrder,
+            payment
+        },"Order & Payment Created Successfully"
         )
     );
 })
@@ -79,13 +94,13 @@ const getMyOrders = asyncHandler(async (req, res) => {
         throw new ApiError(401, "Unauthorized Access Denied");
     }
 
-    const { status, paymentMethod} = req.query;
+    const { status, paymentMethod } = req.query;
 
     const page = Number(req.query.page) || 1;
     const limit = Number(req.query.limit) || 10;
     const skip = (page - 1) * limit;
 
-     const filter = { user: userId };
+    const filter = { user: userId };
 
     if (status) {
         filter.orderStatus = status;
@@ -96,17 +111,17 @@ const getMyOrders = asyncHandler(async (req, res) => {
     }
 
     const [orders, totalOrders] = await Promise.all([
-    Order.find(filter)
-        .sort({ createdAt: -1 })
-        .skip(skip)
-        .limit(limit)
-        .select("orderItems totalPrice orderStatus paymentStatus createdAt")
-        .populate("orderItems.product", "title images price")
-        .populate("user", "name email")
-        .lean(),
+        Order.find(filter)
+            .sort({ createdAt: -1 })
+            .skip(skip)
+            .limit(limit)
+            .select("orderItems totalPrice orderStatus paymentStatus createdAt")
+            .populate("orderItems.product", "title images price")
+            .populate("user", "name email")
+            .lean(),
 
-    Order.countDocuments({ user: userId })
-]);
+        Order.countDocuments({ user: userId })
+    ]);
 
     return res.status(200).json(
         new ApiResponse(
@@ -137,7 +152,7 @@ const getOrderById = asyncHandler(async (req, res) => {
 
     const user = await User.findById(userId);
 
-    if(!user) {
+    if (!user) {
         throw new ApiError(404, "User not Found");
     }
 
@@ -148,13 +163,13 @@ const getOrderById = asyncHandler(async (req, res) => {
     }
 
     if (order.user.toString() !== userId.toString()) {
-        throw new ApiError(403,"You are not allowed to access this order");
+        throw new ApiError(403, "You are not allowed to access this order");
     }
 
     return res.status(200)
-    .json(
-        new ApiResponse(200,order,"Order fetched successfully")
-    );
+        .json(
+            new ApiResponse(200, order, "Order fetched successfully")
+        );
 });
 
 const cancelOrder = asyncHandler(async (req, res) => {
@@ -177,11 +192,11 @@ const cancelOrder = asyncHandler(async (req, res) => {
     }
 
     if (order.user.toString() !== userId.toString()) {
-        throw new ApiError(403,"You are not allowed to cancel this order");
+        throw new ApiError(403, "You are not allowed to cancel this order");
     }
 
     if (order.orderStatus === "DELIVERED" || order.orderStatus === "CANCELLED") {
-        throw new ApiError(400,`Order already ${order.orderStatus}`);
+        throw new ApiError(400, `Order already ${order.orderStatus}`);
     }
 
     order.orderStatus = "CANCELLED";
@@ -212,7 +227,7 @@ const updateOrderStatus = asyncHandler(async (req, res) => {
     ];
 
     if (!allowedStatuses.includes(orderStatus)) {
-        throw new ApiError(400,"Invalid Order Status");
+        throw new ApiError(400, "Invalid Order Status");
     }
 
     const order = await Order.findById(orderId);
@@ -222,7 +237,7 @@ const updateOrderStatus = asyncHandler(async (req, res) => {
     }
 
     if (order.orderStatus === "DELIVERED") {
-        throw new ApiError(400,"Delivered order status cannot be changed");
+        throw new ApiError(400, "Delivered order status cannot be changed");
     }
 
     order.orderStatus = orderStatus;
@@ -230,11 +245,11 @@ const updateOrderStatus = asyncHandler(async (req, res) => {
     await order.save();
 
     return res.status(200).json(
-        new ApiResponse(200,order,"Order status updated successfully")
+        new ApiResponse(200, order, "Order status updated successfully")
     );
 });
 
-export { 
+export {
     createOrder,
     getMyOrders,
     getOrderById,
