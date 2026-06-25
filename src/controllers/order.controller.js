@@ -9,7 +9,7 @@ import { ApiResponse } from "../utils/ApiResponse.js";
 import { asyncHandler } from "../utils/asyncHandler.js";
 
 const createOrder = asyncHandler(async (req, res) => {
-    const userId = req.user._id;
+    const userId = req.user?._id;
 
     if (!userId) {
         throw new ApiError(401, "Unauthorized Access Denied");
@@ -21,6 +21,7 @@ const createOrder = asyncHandler(async (req, res) => {
         throw new ApiError(400, "Invalid Address Id");
     }
 
+    // Validate address
     const address = await Address.findOne({
         _id: addressId,
         user: userId
@@ -30,61 +31,85 @@ const createOrder = asyncHandler(async (req, res) => {
         throw new ApiError(404, "Address Not Found");
     }
 
+    //  Get cart
     const cart = await Cart.findOne({ user: userId }).populate("items.product");
 
-    if (!cart || !cart.items.length) {
+    if (!cart || cart.items.length === 0) {
         throw new ApiError(404, "Cart Is Empty");
     }
 
+    //  Build order items
     const orderItems = cart.items.map((item) => ({
         product: item.product._id,
         name: item.product.title,
-        image: item.product.images?.[0] || "",
+        image: item.product.images?.[0]?.url || "",
         price: item.priceAtPurchase,
-        quantity: item.quantity
+        quantity: item.quantity,
+        subtotal: item.priceAtPurchase * item.quantity
     }));
 
+    //  Recalculate total 
+    const totalPrice = orderItems.reduce((acc, item) => {
+        return acc + item.subtotal;
+    }, 0);
+
+    //  Create order
     const order = await Order.create({
         user: userId,
         orderItems,
         shippingAddress: address._id,
-        totalPrice: cart.totalPrice,
+        totalPrice,
         shippingPrice: 0,
-        paymentMethod
+        paymentMethod,
+        orderStatus: "PENDING",
+        paymentStatus: "UNPAID"
     });
 
-    if(paymentMethod === "COD") {
-        return res.status(200).json(
+    // COD FLOW
+    if (paymentMethod === "COD") {
+       
+        cart.items = [];
+        cart.totalPrice = 0;
+        cart.totalItems = 0;
+        await cart.save();
+
+        return res.status(201).json(
             new ApiResponse(201, order, "Order Created (COD)")
-        )
+        );
     }
+    // ONLINE PAYMENT FLOW
+
+    const amountInPaise = Math.round(totalPrice * 100);
 
     const options = {
-        amount: order.totalPrice * 100,
+        amount: amountInPaise,
         currency: "INR",
-        receipt: `order_rcpt_${Date.now()}`
+        receipt: `order_rcpt_${order._id}`
     };
 
-    const razorpayOrder = await razorpay.orders.create(options)
+    const razorpayOrder = await razorpay.orders.create(options);
 
     const payment = await Payment.create({
         user: userId,
         order: order._id,
         razorpay_order_id: razorpayOrder.id,
-        amount: order.totalPrice,
+        amount: amountInPaise,
         currency: "INR",
         paymentStatus: "CREATED"
     });
 
     return res.status(201).json(
-        new ApiResponse(201, {
-            order,
-            razorpayOrder,
-            payment
-        },"Order & Payment Created Successfully"
+        new ApiResponse(
+            201,
+            {
+                order,
+                razorpayOrder,
+                payment
+            },
+            "Order & Payment Created Successfully"
         )
     );
-})
+});
 
 const getMyOrders = asyncHandler(async (req, res) => {
 

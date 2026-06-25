@@ -6,8 +6,9 @@ import { Cart } from "../model/cart.model.js";
 import { ApiError } from "../utils/ApiError.js";
 import { ApiResponse } from "../utils/ApiResponse.js";
 import { asyncHandler } from "../utils/asyncHandler.js";
+import { Product } from "../model/product.model.js";
 
-export const verifyPayment = asyncHandler(async (req, res) => {
+const verifyPayment = asyncHandler(async (req, res) => {
 
     const userId = req.user?._id;
 
@@ -18,8 +19,8 @@ export const verifyPayment = asyncHandler(async (req, res) => {
     }
 
     
-//  IDEMPOTENCY CHECK 
-    const existingPayment = await Payment.findOne({ razorpay_order_id });
+    //  IDEMPOTENCY CHECK 
+    const existingPayment = await Payment.findOne({ razorpay_order_id, paymentStatus: "SUCCESS" });
 
     if (existingPayment?.paymentStatus === "SUCCESS") {
         return res.status(200).json(
@@ -35,7 +36,7 @@ export const verifyPayment = asyncHandler(async (req, res) => {
         .update(body)
         .digest("hex");
 
-//   FAILED CASE
+    //   FAILED CASE
     if (expectedSignature !== razorpay_signature) {
 
         await Payment.findOneAndUpdate(
@@ -75,6 +76,19 @@ export const verifyPayment = asyncHandler(async (req, res) => {
         { new: true }
     );
 
+    for (const item of order.orderItems) {
+
+    await Product.findByIdAndUpdate(
+        item.product,
+        {
+            $inc: {
+                stock: -item.quantity
+            }
+        }
+    );
+
+    }
+    
     if (!order) {
         throw new ApiError(404, "Order Not Found");
     }
@@ -95,6 +109,6 @@ export const verifyPayment = asyncHandler(async (req, res) => {
     );
 });
 
-const {
+export {
     verifyPayment
 }

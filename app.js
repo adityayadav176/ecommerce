@@ -10,7 +10,7 @@ app.get('/', (req, res) => {
 });
 
 app.use(cors({
-    origin: process.env.CORS_ORIGIN,
+    origin: ["http://127.0.0.1:5500", "http://localhost:5500"],
     credentials: true
 }))
 
@@ -30,6 +30,7 @@ import categoryRouter from "./src/routes/category.routes.js"
 import otpRouter from "./src/routes/otp.routes.js"
 import couponRouter from "./src/routes/coupon.routes.js"
 import orderRouter from "./src/routes/order.routes.js"
+import paymentRouter from "./src/routes/payment.route.js"
 
 //router declaration
 
@@ -43,6 +44,7 @@ app.use("/api/category", categoryRouter);
 app.use("/api/otp", otpRouter);
 app.use("/api/coupon", couponRouter);
 app.use("/api/order", orderRouter);
+app.use("/api/payment", paymentRouter);
 
 app.use(errorHandler);
 export default app;
