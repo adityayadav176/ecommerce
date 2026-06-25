@@ -63,80 +63,72 @@ const SendVerificationEmailOtp = asyncHandler(async (req, res) => {
 
 const sendPasswordResetOtp = asyncHandler(async (req, res) => {
 
-    const userId = req.user?._id;
+const { email } = req.body;
 
-    if (!userId) {
-        throw new ApiError(
-            401,
-            "Unauthorized Access Denied"
-        );
-    }
+if (!email) {
+    throw new ApiError(
+        400,
+        "Email is required"
+    );
+}
 
-    const user = await User.findById(userId);
+const user = await User.findOne({ email });
 
-    if (!user) {
-        throw new ApiError(
-            404,
-            "User Not Found"
-        );
-    }
+if (!user) {
+    throw new ApiError(
+        404,
+        "User not found"
+    );
+}
 
-    // already verified email check
-    if (!user.isEmailVerified) {
-        throw new ApiError(
-            400,
-            "Please Verify Your Email First"
-        );
-    }
+if (!user.isEmailVerified) {
+    throw new ApiError(
+        400,
+        "Please verify your email first"
+    );
+}
 
-    // generate otp
-    const otpCode = Math.floor(
-        100000 + Math.random() * 900000
-    ).toString();
+const otpCode = Math.floor(
+    100000 + Math.random() * 900000
+).toString();
 
+await Otp.deleteMany({
+    email,
+    purpose: "FORGET_PASSWORD",
+});
 
+await Otp.create({
+    email,
+    otp: otpCode,
+    purpose: "FORGET_PASSWORD",
+    expireAt: new Date(
+        Date.now() + 2 * 60 * 1000
+    ),
+});
 
-
-    // remove previous otp
-    await Otp.deleteMany({
-        email: user.email,
-        purpose: "FORGET_PASSWORD",
-    });
-
-    // save otp
-    await Otp.create({
-        email: user.email,
-        otp: otpCode,
-        purpose: "FORGET_PASSWORD",
-        expireAt: new Date(
-            Date.now() + 2 * 60 * 1000
-        )
-    });
-
-    // send mail
-    await transporter.sendMail({
-        from: process.env.SENDER_EMAIL,
-        to: user.email,
-        subject: "Update Your Password",
-        text: `  <div style="font-family:sans-serif">
+await transporter.sendMail({
+    from: process.env.SENDER_EMAIL,
+    to: email,
+    subject: "Password Reset OTP",
+    html: `
+        <div style="font-family:sans-serif">
             <h2>Password Reset OTP</h2>
             <p>Your OTP is:</p>
             <h1>${otpCode}</h1>
             <p>This OTP expires in 2 minutes.</p>
-        </div>`
-    });
-
-
-    return res
-        .status(200)
-        .json(
-            new ApiResponse(
-                200,
-                {},
-                "Password Reset OTP Sent Successfully"
-            )
-        );
+        </div>
+    `,
 });
+
+return res.status(200).json(
+    new ApiResponse(
+        200,
+        {},
+        "Password Reset OTP Sent Successfully"
+    )
+);
+});
+
 
 export {
     sendPasswordResetOtp,

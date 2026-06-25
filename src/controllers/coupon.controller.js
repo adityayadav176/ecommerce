@@ -5,6 +5,7 @@ import { ApiError } from "../utils/ApiError.js";
 import { ApiResponse } from "../utils/ApiResponse.js";
 import { checkCouponEligibility } from "../utils/checkCouponEligibility.js"
 import { incrementCouponUsage } from "../utils/incrementCouponUsage.js"
+import { Cart } from "../model/cart.model.js";
 
 
 const createCoupon = asyncHandler(async (req, res) => {
@@ -275,62 +276,100 @@ const updateCoupon = asyncHandler(async (req, res) => {
 })
 
 const applyCoupon = asyncHandler(async (req, res) => {
-    const { cartTotal, couponCode, productIds = [], categoryIds = []} = req.body
 
-    const userId = req.user._id
+    const { couponCode } = req.body;
 
-    if(!userId) {
+    const userId = req.user?._id;
+
+    if (!userId) {
         throw new ApiError(401, "Unauthorized Access Denied");
     }
 
-    if(!couponCode) {
-        throw new ApiError(400, "CouponCode Is Required");
+    if (!couponCode?.trim()) {
+        throw new ApiError(400, "Coupon Code is Required");
     }
 
-    if(!cartTotal === undefined || cartTotal <= 0) {
-        throw new ApiError(400, "Invalid Cart Total");
+    const cart = await Cart.findOne({
+        user: userId
+    }).populate({
+        path: "items.product",
+        select: "price category"
+    });
+
+    if (!cart || cart.items.length === 0) {
+        throw new ApiError(400, "Cart is Empty");
     }
+
+    const cartTotal = cart.items.reduce(
+        (total, item) =>
+            total + (item.product.price * item.quantity),
+        0
+    );
+
+    const productIds = cart.items.map(
+        item => item.product._id
+    );
+
+    const categoryIds = [
+        ...new Set(
+            cart.items.map(
+                item => item.product.category.toString()
+            )
+        )
+    ];
 
     const coupon = await checkCouponEligibility({
-        couponCode,
+        couponCode: couponCode.trim(),
         cartTotal,
         productIds,
         categoryIds,
         userId
-    })
+    });
 
     let discountAmount = 0;
 
-    if(coupon.discountType === "FLAT") {
-        discountAmount = coupon.discountValue;
+    switch (coupon.discountType) {
+
+        case "FLAT":
+            discountAmount = coupon.discountValue;
+            break;
+
+        case "PERCENTAGE":
+            discountAmount =
+                (cartTotal * Math.min(coupon.discountValue, 100)) / 100;
+            break;
+
+        case "FREE_SHIPPING":
+            discountAmount = 0;
+            break;
+
+        default:
+            throw new ApiError(400, "Invalid Coupon Type");
     }
 
-    else if(coupon.discountType ===  "PERCENTAGE") {
-        discountAmount = (cartTotal * coupon.discountAmount) / 100; 
-    }
+    discountAmount = Number(discountAmount.toFixed(2));
 
-    else if(coupon.discountType === "FREE_SHIPPING") {
-        discountAmount = 0;
-    }
+    const finalPrice = Number(
+        Math.max(cartTotal - discountAmount, 0).toFixed(2)
+    );
 
-    const finalPrice = Math.max(cartTotal - discountAmount, 0);
-
-    return res.status(200)
-    .json(
+    return res.status(200).json(
         new ApiResponse(
-            200, 
+            200,
             {
                 couponId: coupon._id,
                 couponCode: coupon.code,
                 discountType: coupon.discountType,
-                discountAmount, 
+                discountValue: coupon.discountValue,
+                discountAmount,
                 originalPrice: cartTotal,
-                finalPrice
+                finalPrice,
+                savings: discountAmount
             },
             "Coupon Applied Successfully"
         )
-    )
-})
+    );
+});
 
 export {
     createCoupon,

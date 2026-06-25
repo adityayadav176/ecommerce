@@ -259,8 +259,65 @@ const changeIsDefault = asyncHandler(async (req, res) => {
    }
 })
 
+const getMyAddresses = asyncHandler(async (req, res) => {
+
+    const userId = req.user?._id;
+
+    if (!userId) {
+        throw new ApiError(401, "Unauthorized Access Denied");
+    }
+
+    const addresses = await Address.find({
+        user: userId
+    }).sort({
+        isDefault: -1,
+        createdAt: -1
+    });
+
+    return res.status(200).json(
+        new ApiResponse(
+            200,
+            addresses,
+            "Addresses fetched successfully"
+        )
+    );
+});
+
+const deleteAddress = asyncHandler(async (req, res) => {
+
+    const userId = req.user?._id;
+    const { addressId } = req.params;
+
+    if (!userId) {
+        throw new ApiError(401, "Unauthorized Access Denied");
+    }
+
+    if (!mongoose.isValidObjectId(addressId)) {
+        throw new ApiError(400, "Invalid Address Id");
+    }
+
+    const deletedAddress = await Address.findOneAndDelete({
+        _id: addressId,
+        user: userId
+    });
+
+    if (!deletedAddress) {
+        throw new ApiError(404, "Address Not Found");
+    }
+
+    return res.status(200).json(
+        new ApiResponse(
+            200,
+            {},
+            "Address Deleted Successfully"
+        )
+    );
+});
+
 export {
     CreateAddress,
     updateAddress,
     changeIsDefault,
+    getMyAddresses,
+    deleteAddress
 }

@@ -96,11 +96,22 @@ const productSchema = new Schema({
             message: "Discount price cannot exceed product price"
         }
     },
-    rating: {
+    ratings: [
+        {
+            user: {
+                type: mongoose.Schema.Types.ObjectId,
+                ref: "User"
+            },
+            rating: {
+                type: Number,
+                min: 1,
+                max: 5
+            }
+        }
+    ],
+    averageRating: {
         type: Number,
-        default: 0,
-        min: 0,
-        max: 5,
+        default: 0
     },
     isPublished: {
         type: Boolean,
@@ -113,14 +124,14 @@ const productSchema = new Schema({
         }
     ]
 }, { timestamps: true })
-
+productSchema.index({ isPublished: 1, status: 1, createdAt: -1 });
 productSchema.plugin(mongooseAggregatePaginate);
 
 export const Product = mongoose.model("Product", productSchema);
 
-productSchema.pre("save", function(next) {
+productSchema.pre("save", function (next) {
 
-    if(this.stock <= 0) {
+    if (this.stock <= 0) {
         this.status = "OUT_OF_STOCK";
     } else {
         this.status = "ACTIVE";

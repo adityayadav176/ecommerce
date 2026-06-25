@@ -5,6 +5,7 @@ import { Category } from "../model/category.model.js"
 import slugify from "slugify";
 import { uploadOnCloudinary } from "../config/cloudinary.js";
 import cloudinary from "cloudinary"
+import { Product } from "../model/product.model.js";
 
 const addCategory = asyncHandler(async (req, res) => {
 
@@ -180,35 +181,6 @@ const changeCategoryImage = asyncHandler(async (req, res) => {
     );
 });
 
-const getCategoryBySlug = asyncHandler(async (req, res) => {
-    const userId = req.user._id
-
-    if(!userId) {
-        throw new ApiError(401, "Unauthorized Access Denied");
-    }
-
-    const {slug} = req.params;
-
-    if(!slug) {
-        throw new ApiError(400, "Slug is Required");
-    }
-
-    const category = await Category.findOne({slug});
-
-    if(!category.isActive) {
-        throw new ApiError(400, "Category is Not Accessible")
-    }
-
-    if(!category) {
-        throw new ApiError(404, "Category Not Found");
-    }
-
-    return res.status(200)
-    .json(
-        new ApiResponse(200, category, "Category Fetched Successfully")
-    )
-})
-
 const deleteCategoryBySlug = asyncHandler(async ( req, res) => {
     const userId = req.user?._id
 
@@ -244,40 +216,120 @@ const deleteCategoryBySlug = asyncHandler(async ( req, res) => {
     
 })
 
-const getAllCategory = asyncHandler(async (req, res) => {
-    const userId = req.user?._id
+const getCategoryProducts = asyncHandler(async (req, res) => {
 
-    if(!userId) {
-        throw new ApiError(401, "Unauthorized Access Denied");
-    }
+    const { slug } = req.params;
 
-    let {page, limit} = req.query
+    let { page, limit, search } = req.query;
 
-    page = parseInt(req.query.page) || 1;
-    limit = parseInt(req.query.limit) || 10;
+    page = Number(page) || 1;
+    limit = Number(limit) || 10;
 
     const skip = (page - 1) * limit;
 
-    const Categories = await Category.find({})
-    .sort({createdAt: -1})
-    .skip(skip)
-    .limit(limit);
+    const category = await Category.findOne({
+        slug,
+        isActive: true
+    });
 
-    if(!Categories || Categories.length === 0) {
-        return res.status(200).json(
-            new ApiResponse(200, [], "No Categories Found")
-        )
+    if (!category) {
+        throw new ApiError(404, "Category Not Found");
     }
 
-    const total = await Category.countDocuments();
+    const filter = {
+        category: category._id
+    };
+
+    if (search?.trim()) {
+        filter.title = {
+            $regex: search,
+            $options: "i"
+        };
+    }
+
+    const products = await Product.find(filter)
+        .skip(skip)
+        .limit(limit)
+        .sort({ createdAt: -1 });
+
+    const total = await Product.countDocuments(filter);
 
     return res.status(200).json(
-        new ApiResponse(200, {
-            Categories, 
-            total, 
-            totalPages: Math.ceil(total/limit), 
-            currentPage: page
-        }, "Categories Found Successfully")
+        new ApiResponse(
+            200,
+            {
+                products,
+                total,
+                totalPages: Math.ceil(total / limit),
+                currentPage: page
+            },
+            "Products fetched successfully"
+        )
+    );
+});
+
+const getAllCategory = asyncHandler(async (req, res) => {
+
+    let { page, limit, search } = req.query;
+
+    page = parseInt(page) || 1;
+    limit = parseInt(limit) || 10;
+
+    const skip = (page - 1) * limit;
+
+    const filter = {};
+
+    if (search?.trim()) {
+        filter.name = {
+            $regex: search.trim(),
+            $options: "i"
+        };
+    }
+
+    const categories = await Category.find(filter)
+        .sort({ createdAt: -1 })
+        .skip(skip)
+        .limit(limit);
+
+    const total = await Category.countDocuments(filter);
+
+    return res.status(200).json(
+        new ApiResponse(
+            200,
+            {
+                categories,
+                total,
+                totalPages: Math.ceil(total / limit),
+                currentPage: page,
+                search: search || ""
+            },
+            "Categories fetched successfully"
+        )
+    );
+});
+
+const getCategoryStats = asyncHandler(async (req, res) => {
+
+    const totalCategories = await Category.countDocuments();
+
+    const activeCategories = await Category.countDocuments({
+        isActive: true
+    });
+
+    const inactiveCategories = await Category.countDocuments({
+        isActive: false
+    });
+
+    return res.status(200).json(
+        new ApiResponse(
+            200,
+            {
+                totalCategories,
+                activeCategories,
+                inactiveCategories
+            },
+            "Category statistics fetched successfully"
+        )
     );
 });
 
@@ -286,7 +338,8 @@ export {
     updateCategory,
     toggleIsActive,
     changeCategoryImage,
-    getCategoryBySlug,
     deleteCategoryBySlug,
-    getAllCategory
+    getAllCategory,
+    getCategoryProducts,
+    getCategoryStats
 }

@@ -288,84 +288,89 @@ const updateProfilePicture = asyncHandler(async (req, res) => {
 });
 
 const updatePassword = asyncHandler(async (req, res) => {
-    const userId = req.user?._id;
+    const { email, otp, password } = req.body;
 
-    if (!userId) {
-        throw new ApiError(401, "Unauthorized Access Denied");
-    }
-
-    const { otp, password } = req.body;
-
-    if (!otp || !password) {
-        throw new ApiError(400, "Password and OTP are required");
+    if (!email || !otp || !password) {
+        throw new ApiError(
+            400,
+            "Email, OTP and password are required"
+        );
     }
 
     if (password.length < 6) {
-        throw new ApiError(400, "Password must be at least 6 characters");
+        throw new ApiError(
+            400,
+            "Password must be at least 6 characters"
+        );
     }
 
-    const user = await User.findById(userId);
+    const user = await User.findOne({ email });
 
     if (!user) {
         throw new ApiError(404, "User not found");
     }
 
     const otpDoc = await Otp.findOne({
-        email: user.email,
+        email,
         purpose: "FORGET_PASSWORD",
     }).select("+otp");
 
     if (!otpDoc) {
-        throw new ApiError(404, "OTP not found");
+        throw new ApiError(
+            404,
+            "OTP not found or already used"
+        );
     }
 
     if (otpDoc.expireAt < Date.now()) {
-        throw new ApiError(400, "OTP expired");
         await Otp.deleteOne({ _id: otpDoc._id });
+
+        throw new ApiError(
+            400,
+            "OTP has expired"
+        );
     }
 
     if (otpDoc.attempts >= 5) {
-        throw new ApiError(429, "Too many attempts");
         await Otp.deleteOne({ _id: otpDoc._id });
+
+        throw new ApiError(
+            429,
+            "Too many failed attempts"
+        );
     }
 
     const isOtpCorrect = await otpDoc.isOtpCorrect(otp);
 
     if (!isOtpCorrect) {
+        otpDoc.attempts += 1;
+        await otpDoc.save();
 
-    otpDoc.attempts += 1;
-    await otpDoc.save();
+        throw new ApiError(
+            400,
+            `Invalid OTP. Attempts: ${otpDoc.attempts}/5`
+        );
+    }
 
-    throw new ApiError(
-        400,
-        `Invalid OTP. Attempts: ${otpDoc.attempts}/5`
-    );
-}
-
-    // Update password
     user.password = password;
     await user.save();
 
-    // Delete OTP
     await Otp.deleteOne({ _id: otpDoc._id });
-
-    const updatedUser = await User.findById(userId)
-        .select("-password -refreshToken");
 
     return res.status(200).json(
         new ApiResponse(
             200,
-            updatedUser,
-            "Password Updated Successfully"
+            {},
+            "Password reset successfully"
         )
     );
+
 });
 
 const verifyEmail = asyncHandler(async (req, res) => {
 
     const { email, otp } = req.body;
 
-    // validation
     if (!email || !otp) {
         throw new ApiError(
             400,
@@ -484,26 +489,26 @@ const verifyEmail = asyncHandler(async (req, res) => {
 const getUserData = asyncHandler(async (req, res) => {
     const userId = req?.user?._id
 
-    if(!userId) {
+    if (!userId) {
         throw new ApiError(401, "Unauthorized Access Denied");
     }
 
     const user = await User.findById(userId).select("-password -refreshToken");
 
-    if(!user) {
+    if (!user) {
         throw new ApiError(404, "User Not Found");
     }
 
     return res.status(200)
-    .json(
-        new ApiResponse(200, user, "Fetched User Successfully")
-    )
+        .json(
+            new ApiResponse(200, user, "Fetched User Successfully")
+        )
 })
 
 const refreshAccessToken = asyncHandler(async (req, res) => {
 
     const incomingRefreshToken =
-        req.cookies.refreshToken || req.body.refreshToken;
+        req.cookies?.refreshToken || req.body?.refreshToken;
 
     if (!incomingRefreshToken) {
         throw new ApiError(401, "Unauthorized Access Denied");

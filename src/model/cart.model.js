@@ -11,8 +11,7 @@ const cartItemSchema = new Schema(
         quantity: {
             type: Number,
             required: true,
-            min: 1,
-            default: 1
+            min: 1
         },
 
         priceAtPurchase: {
@@ -22,8 +21,7 @@ const cartItemSchema = new Schema(
 
         subtotal: {
             type: Number,
-            required: true,
-            default: 0
+            required: true
         }
     },
     { _id: true }
@@ -35,7 +33,8 @@ const cartSchema = new Schema(
             type: Schema.Types.ObjectId,
             ref: "User",
             required: true,
-            unique: true
+            unique: true,
+            index: true
         },
 
         items: [cartItemSchema],
@@ -50,7 +49,11 @@ const cartSchema = new Schema(
             default: 0
         }
     },
-    { timestamps: true }
+    {
+        timestamps: true
+    }
 );
+
+cartSchema.index({ user: 1 });
 
 export const Cart = mongoose.model("Cart", cartSchema);

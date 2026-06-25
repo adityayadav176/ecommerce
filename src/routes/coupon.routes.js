@@ -7,12 +7,11 @@ const router = Router();
 
 // All Routes Required Admin Permission
 router.use(verifyJwt);
-router.use(verifyAdmin);
 
-router.route("/createCoupon").post(createCoupon);
-router.route("/coupons").get(getAllCoupons);
-router.route("/couponById/:couponId").get(getCouponsById);
-router.route("/deleteCoupon/:couponId").delete(deleteCoupons);
-router.route("/updateCoupon/:couponId").patch(updateCoupon);
+router.route("/createCoupon").post(verifyAdmin ,createCoupon);
+router.route("/coupons").get(verifyAdmin ,getAllCoupons);
+router.route("/couponById/:couponId").get(verifyAdmin ,getCouponsById);
+router.route("/deleteCoupon/:couponId").delete(verifyAdmin ,deleteCoupons);
+router.route("/updateCoupon/:couponId").patch(verifyAdmin ,updateCoupon);
 router.route("/applyCoupon").post(applyCoupon);
 export default router;

@@ -10,52 +10,29 @@ const checkCouponEligibility = async ({
     categoryIds = []
 }) => {
 
-    const normalizedCode =
-        couponCode.trim().toUpperCase();
+    const normalizedCode = couponCode.trim().toUpperCase();
 
     const coupon = await Coupon.findOne({
         code: normalizedCode
     });
 
-    // Coupon Exists
     if (!coupon) {
-        throw new ApiError(
-            404,
-            "Coupon Not Found"
-        );
+        throw new ApiError(404, "Coupon Not Found");
     }
 
-    // Coupon Active
     if (!coupon.isActive) {
-        throw new ApiError(
-            400,
-            "Coupon Is Invalid Or Inactive"
-        );
+        throw new ApiError(400, "Coupon Is Invalid Or Inactive");
     }
 
-    // Expiry Validation
-    if (coupon.expireAt < Date.now()) {
-        throw new ApiError(
-            400,
-            "Coupon Expired"
-        );
+    if (new Date() > coupon.expireAt) {
+        throw new ApiError(400, "Coupon Expired");
     }
 
-    // Total Usage Validation
-    if (
-        coupon.usedQuantity >=
-        coupon.totalQuantity
-    ) {
-        throw new ApiError(
-            400,
-            "Coupon Usage Limit Reached"
-        );
+    if (coupon.usedQuantity >= coupon.totalQuantity) {
+        throw new ApiError(400, "Coupon Usage Limit Reached");
     }
 
-    // Minimum Cart Value Validation
-    if (
-        cartTotal < coupon.minCartValue
-    ) {
+    if (cartTotal < coupon.minCartValue) {
         throw new ApiError(
             400,
             `Minimum Cart Value Should Be ${coupon.minCartValue}`
@@ -63,18 +40,15 @@ const checkCouponEligibility = async ({
     }
 
     // Product Eligibility Validation
-    if (
-        coupon.applicableProducts.length > 0
-    ) {
+    if (coupon.applicableProducts?.length > 0) {
 
-        const isValidProduct =
-            productIds.some(productId =>
-                coupon.applicableProducts.some(
-                    applicableProduct =>
-                        applicableProduct.toString() ===
-                        productId.toString()
-                )
-            );
+        const applicableProducts = new Set(
+            coupon.applicableProducts.map(id => id.toString())
+        );
+
+        const isValidProduct = productIds.some(
+            productId => applicableProducts.has(productId.toString())
+        );
 
         if (!isValidProduct) {
             throw new ApiError(
@@ -85,18 +59,15 @@ const checkCouponEligibility = async ({
     }
 
     // Category Eligibility Validation
-    if (
-        coupon.applicableCategories.length > 0
-    ) {
+    if (coupon.applicableCategories?.length > 0) {
 
-        const isValidCategory =
-            categoryIds.some(categoryId =>
-                coupon.applicableCategories.some(
-                    applicableCategory =>
-                        applicableCategory.toString() ===
-                        categoryId.toString()
-                )
-            );
+        const applicableCategories = new Set(
+            coupon.applicableCategories.map(id => id.toString())
+        );
+
+        const isValidCategory = categoryIds.some(
+            categoryId => applicableCategories.has(categoryId.toString())
+        );
 
         if (!isValidCategory) {
             throw new ApiError(
@@ -106,17 +77,12 @@ const checkCouponEligibility = async ({
         }
     }
 
-    // Per User Limit Validation
-    const userCouponUsage =
-        await Order.countDocuments({
-            user: userId,
-            coupon: coupon._id
-        });
+    const userCouponUsage = await Order.countDocuments({
+        user: userId,
+        coupon: coupon._id
+    });
 
-    if (
-        userCouponUsage >=
-        coupon.perUserLimit
-    ) {
+    if (userCouponUsage >= coupon.perUserLimit) {
         throw new ApiError(
             400,
             "Per User Coupon Limit Reached"

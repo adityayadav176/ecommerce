@@ -8,24 +8,12 @@ import mongoose from "mongoose"
 
 const AddProduct = asyncHandler(async (req, res) => {
 
-    // fetched all important details from req.body
-    // validate all details
-    // fetched all images from req.files
-    // validate images
-    // upload on cloudinary
-    // if not upload then return error
-    // create product object according to all details and items
-    // if error when creating a object then give error
-    // fetched created product 
-    // return res.json product and msg
-
-
     const userId = req.user._id
     if (!userId || !mongoose.isValidObjectId(userId)) {
         throw new ApiError(401, "Unauthorized Access");
     }
 
-    const { title, description, size, price, stock, tags, category, brand, shippingCost, discountPrice, status, finalPrice } = req.body
+    const { title, description, size, price, stock, tags, category, brand, shippingCost, discountPrice, status } = req.body
 
     if (!title || !description || !price || !stock || !tags || !category || !brand) {
         throw new ApiError(400, "ALL Fields Are Required!");
@@ -58,7 +46,7 @@ const AddProduct = asyncHandler(async (req, res) => {
     const tagsArray = tags ? tags.split(",").map(tag => tag.trim()) : [];
     const sizeArray = size ? size.split(",").map(s => s.trim()) : [];
 
-    if (isNaN(price) || isNaN(stock)) {
+    if (isNaN(price) || isNaN(stockNumber)) {
         throw new ApiError(400, "Prices and Stock must be A Numbers")
     }
 
@@ -126,7 +114,6 @@ const deleteProduct = asyncHandler(async (req, res) => {
 });
 
 const updateProductDetails = asyncHandler(async (req, res) => {
-
     const userId = req.user._id
 
     if(!userId) {
@@ -252,149 +239,179 @@ const getProductById = asyncHandler(async (req, res) => {
 
 const getAllProduct = asyncHandler(async (req, res) => {
 
+    const page = Number(req.query.page) || 1;
+    const limit = Number(req.query.limit) || 12;
+    const skip = (page - 1) * limit;
+
     const filter = {
         isPublished: true,
         status: { $ne: "DISCONTINUED" }
     };
 
-    const products = await Product.find(filter).sort({ createdAt: -1 });
+    const [products, totalProducts] = await Promise.all([
 
-    const totalProducts = await Product.countDocuments(filter);
+        Product.aggregate([
+            { $match: filter },
+
+            { $sort: { createdAt: -1 } },
+
+            { $skip: skip },
+
+            { $limit: limit },
+
+            {
+                $project: {
+                    title: 1,
+                    price: 1,
+                    finalPrice: 1,
+                    discountPrice: 1,
+                    rating: 1,
+                    stock: 1,
+                    brand: 1,
+                    status: 1,
+
+                    thumbnail: {
+                        $arrayElemAt: ["$images", 0]
+                    }
+                }
+            }
+        ]),
+
+        Product.countDocuments(filter)
+
+    ]);
 
     return res.status(200).json(
         new ApiResponse(
             200,
             {
-                totalProducts,
-                products
+                products,
+                pagination: {
+                    currentPage: page,
+                    totalPages: Math.ceil(totalProducts / limit),
+                    totalProducts,
+                    hasNextPage: page * limit < totalProducts,
+                    hasPrevPage: page > 1
+                }
             },
-            "Fetched All Products Successfully"
+            "Products fetched successfully"
         )
     );
 });
 
 const getAllMyProducts = asyncHandler(async (req, res) => {
 
-    // get logged in user id
     const userId = req.user?._id;
 
-    // check authorization
     if (!userId) {
         throw new ApiError(401, "Unauthorized Access Denied!");
     }
 
-    // aggregate products
-    const products = await Product.aggregate([
+    const page = Number(req.query.page) || 1;
+    const limit = Number(req.query.limit) || 10;
+    const skip = (page - 1) * limit;
 
-        // fetch only logged in user products
-        {
-            $match: {
-                createdBy: new mongoose.Types.ObjectId(userId)
+    const matchStage = {
+        createdBy: new mongoose.Types.ObjectId(userId),
+        status: { $ne: "DISCONTINUED" }
+    };
+
+    const [products, stats] = await Promise.all([
+
+        Product.aggregate([
+            {
+                $match: matchStage
+            },
+            {
+                $project: {
+                    title: 1,
+                    price: 1,
+                    stock: 1,
+                    brand: 1,
+                    status: 1,
+                    rating: 1,
+                    createdAt: 1,
+                    finalPrice: {
+                        $add: [
+                            "$price",
+                            { $ifNull: ["$shippingCost", 0] }
+                        ]
+                    },
+                    thumbnail: {
+                        $arrayElemAt: ["$images", 0]
+                    }
+                }
+            },
+            {
+                $sort: {
+                    createdAt: -1
+                }
+            },
+            {
+                $skip: skip
+            },
+            {
+                $limit: limit
             }
-        },
+        ]),
 
-        // add final price field
-        {
-            $addFields: {
-                finalPrice: {
-                    $add: [
-                        "$price",
-                        {
-                            $ifNull: ["$shippingCost", 0]
+        Product.aggregate([
+            {
+                $match: matchStage
+            },
+            {
+                $group: {
+                    _id: null,
+                    totalProducts: { $sum: 1 },
+                    totalStock: { $sum: "$stock" },
+                    totalPrice: {
+                        $sum: {
+                            $add: [
+                                "$price",
+                                { $ifNull: ["$shippingCost", 0] }
+                            ]
                         }
-                    ]
+                    }
                 }
             }
-        },
-
-        // remove discontinued products
-        {
-            $match: {
-                status: {
-                    $ne: "DISCONTINUED"
-                }
-            }
-        },
-
-        // sort latest products first
-        {
-            $sort: {
-                createdAt: -1
-            }
-        },
-
-        // calculate totals
-        {
-            $group: {
-                _id: null,
-
-                totalProducts: {
-                    $sum: 1
-                },
-
-                totalStock: {
-                    $sum: "$stock"
-                },
-
-                totalPrice: {
-                    $sum: "$finalPrice"
-                },
-
-                products: {
-                    $push: "$$ROOT"
-                }
-            }
-        }
+        ])
 
     ]);
 
-    // if no products
-    if (!products.length) {
-        return res.status(200).json(
-            new ApiResponse(
-                200,
-                {
-                    totalProducts: 0,
-                    totalStock: 0,
-                    totalPrice: 0,
-                    products: []
-                },
-                "No Products Found"
-            )
-        );
-    }
+    const summary = stats[0] || {
+        totalProducts: 0,
+        totalStock: 0,
+        totalPrice: 0
+    };
 
-    // return response
     return res.status(200).json(
         new ApiResponse(
             200,
-            products[0],
+            {
+                ...summary,
+                page,
+                limit,
+                totalPages: Math.ceil(summary.totalProducts / limit),
+                products
+            },
             "Products Fetched Successfully"
         )
     );
 });
 
 const AddSippingCost = asyncHandler(async (req, res) => {
-
-    // fetch shipping cost
     const { shippingCost } = req.body;
 
-    // validate shipping cost
-    if (
-        shippingCost === undefined ||
-        typeof shippingCost !== "number" ||
-        shippingCost < 0
-    ) {
+    if (shippingCost === undefined ||typeof shippingCost !== "number" ||shippingCost < 0) {
         throw new ApiError(
             400,
             "Valid ShippingCost Is Required"
         );
     }
 
-    // fetch user id
+
     const userId = req.user?._id;
 
-    // validate user
     if (!userId) {
         throw new ApiError(
             401,
@@ -402,24 +419,20 @@ const AddSippingCost = asyncHandler(async (req, res) => {
         );
     }
 
-    // fetch product id
+
     const { productId } = req.params;
 
-    // validate product id
-    if (
-        !productId ||
-        !mongoose.isValidObjectId(productId)
-    ) {
+   
+    if (!productId ||!mongoose.isValidObjectId(productId)) {
         throw new ApiError(
             400,
             "Invalid ProductId"
         );
     }
 
-    // find product
+    
     const existedProduct = await Product.findById(productId);
 
-    // validate product
     if (!existedProduct) {
         throw new ApiError(
             404,
@@ -427,11 +440,7 @@ const AddSippingCost = asyncHandler(async (req, res) => {
         );
     }
 
-    // ownership check
-    if (
-        existedProduct.createdBy.toString() !==
-        userId.toString()
-    ) {
+    if (existedProduct.createdBy.toString() !== userId.toString()) {
         throw new ApiError(
             403,
             "You Can Update Only Your Product"
@@ -732,7 +741,102 @@ const updateStock = asyncHandler(async (req, res) => {
 
 const updateRating = asyncHandler(async (req, res) => {
 
-})
+    const userId = req.user?._id;
+    const { productId } = req.params;
+    const { rating } = req.body;
+
+    if (!userId) {
+        throw new ApiError(401, "Unauthorized Access");
+    }
+
+    if (!mongoose.isValidObjectId(productId)) {
+        throw new ApiError(400, "Invalid Product ID");
+    }
+
+    if (!rating || rating < 1 || rating > 5) {
+        throw new ApiError(400, "Rating must be between 1 and 5");
+    }
+
+    const product = await Product.findById(productId);
+
+    if (!product) {
+        throw new ApiError(404, "Product not found");
+    }
+
+    const existingRating = product.ratings.find(
+        (item) => item.user.toString() === userId.toString()
+    );
+
+    if (existingRating) {
+        existingRating.rating = rating;
+    } else {
+        product.ratings.push({
+            user: userId,
+            rating
+        });
+    }
+
+    const totalRatings = product.ratings.reduce(
+        (sum, item) => sum + item.rating,
+        0
+    );
+
+    product.averageRating =
+        totalRatings / product.ratings.length;
+
+    await product.save();
+
+    return res.status(200).json(
+        new ApiResponse(
+            200,
+            product,
+            "Rating updated successfully"
+        )
+    );
+});
+
+const getProductRatings = asyncHandler(async (req, res) => {
+
+    const { productId } = req.params;
+
+    const page = Math.max(1, Number(req.query.page) || 1);
+    const limit = Math.max(1, Number(req.query.limit) || 10);
+
+    if (!mongoose.isValidObjectId(productId)) {
+        throw new ApiError(400, "Invalid Product ID");
+    }
+
+    const product = await Product.findById(productId)
+        .select("ratings averageRating")
+        .populate("ratings.user", "fullName username avatar");
+
+    if (!product) {
+        throw new ApiError(404, "Product not found");
+    }
+
+    const totalRatings = product.ratings.length;
+    const totalPages = Math.ceil(totalRatings / limit);
+    const skip = (page - 1) * limit;
+
+    const paginatedRatings = product.ratings.slice(
+        skip,
+        skip + limit
+    );
+
+    return res.status(200).json(
+        new ApiResponse(
+            200,
+            {
+                averageRating: product.averageRating,
+                totalRatings,
+                currentPage: page,
+                totalPages,
+                ratings: paginatedRatings
+            },
+            "Ratings fetched successfully"
+        )
+    );
+});
 
 const SoldAProduct = asyncHandler(async (req, res) => {
 
@@ -750,4 +854,6 @@ export {
     addDiscountPrice,
     updateProductDetails,
     updateStock,
+    updateRating,
+    getProductRatings
 }
