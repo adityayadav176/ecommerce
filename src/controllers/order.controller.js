@@ -1,114 +1,159 @@
 import mongoose from "mongoose";
-import { razorpay } from "../config/razorpay.js";
-import { Cart } from "../model/cart.model.js";
-import { Order } from "../model/order.model.js";
-import { Address } from "../model/address.model.js";
+import { Order } from "../model/order.model.js"; // Adjust paths accordingly
 import { Payment } from "../model/payment.model.js";
+import { Cart } from "../model/cart.model.js";
+import { Address } from "../model/address.model.js";
+import { Product } from "../model/product.model.js";
 import { ApiError } from "../utils/ApiError.js";
 import { ApiResponse } from "../utils/ApiResponse.js";
 import { asyncHandler } from "../utils/asyncHandler.js";
+import { razorpay } from "../config/razorpay.js"; 
 
 const createOrder = asyncHandler(async (req, res) => {
     const userId = req.user?._id;
-
-    if (!userId) {
-        throw new ApiError(401, "Unauthorized Access Denied");
-    }
+    if (!userId) throw new ApiError(401, "Unauthorized Access Denied");
 
     const { addressId, paymentMethod } = req.body;
-
     if (!addressId || !mongoose.isValidObjectId(addressId)) {
         throw new ApiError(400, "Invalid Address Id");
     }
 
-    // Validate address
-    const address = await Address.findOne({
-        _id: addressId,
-        user: userId
-    });
-
-    if (!address) {
-        throw new ApiError(404, "Address Not Found");
-    }
-
-    //  Get cart
     const cart = await Cart.findOne({ user: userId }).populate("items.product");
+    if (!cart || cart.items.length === 0) throw new ApiError(404, "Cart Is Empty");
 
-    if (!cart || cart.items.length === 0) {
-        throw new ApiError(404, "Cart Is Empty");
-    }
+    const address = await Address.findOne({ _id: addressId, user: userId });
+    if (!address) throw new ApiError(404, "Address Not Found");
 
-    //  Build order items
-    const orderItems = cart.items.map((item) => ({
-        product: item.product._id,
-        name: item.product.title,
-        image: item.product.images?.[0]?.url || "",
-        price: item.priceAtPurchase,
-        quantity: item.quantity,
-        subtotal: item.priceAtPurchase * item.quantity
-    }));
+    const session = await mongoose.startSession();
+    session.startTransaction();
 
-    //  Recalculate total 
-    const totalPrice = orderItems.reduce((acc, item) => {
-        return acc + item.subtotal;
-    }, 0);
+    try {
+        const orderItems = [];
+        let totalPrice = 0;
 
-    //  Create order
-    const order = await Order.create({
-        user: userId,
-        orderItems,
-        shippingAddress: address._id,
-        totalPrice,
-        shippingPrice: 0,
-        paymentMethod,
-        orderStatus: "PENDING",
-        paymentStatus: "UNPAID"
-    });
+        for (const item of cart.items) {
+            const product = await Product.findById(item.product._id).session(session);
+            if (!product || product.stock < item.quantity) {
+                throw new ApiError(400, `Product ${product?.title || "Unknown"} is out of stock.`);
+            }
+            const subtotal = item.priceAtPurchase * item.quantity;
+            totalPrice += subtotal;
 
-    // COD FLOW
-    if (paymentMethod === "COD") {
-       
-        cart.items = [];
-        cart.totalPrice = 0;
-        cart.totalItems = 0;
-        await cart.save();
+            orderItems.push({
+                product: item.product._id,
+                name: item.product.title,
+                image: item.product.images?.[0]?.url || "",
+                price: item.priceAtPurchase,
+                quantity: item.quantity,
+            });
+        }
+
+        // Find or update the order
+        let order = await Order.findOne({
+            user: userId,
+            paymentStatus: "UNPAID",
+            orderStatus: "PENDING",
+            paymentMethod: "RAZORPAY"
+        }).session(session);
+
+        if (order) {
+            order.orderItems = orderItems; 
+            order.totalPrice = totalPrice;
+            order.shippingAddress = address._id;
+            await order.save({ session });
+        } else {
+            const [newOrder] = await Order.create(
+                [{
+                    user: userId,
+                    orderItems,
+                    shippingAddress: address._id,
+                    totalPrice,
+                    shippingPrice: 0,
+                    paymentMethod,
+                    orderStatus: "PENDING",
+                    paymentStatus: "UNPAID",
+                }],
+                { session }
+            );
+            order = newOrder;
+        }
+
+        if (paymentMethod === "COD") {
+            for (const item of orderItems) {
+                await Product.findByIdAndUpdate(item.product, { $inc: { stock: -item.quantity } }, { session });
+            }
+            await Cart.findOneAndUpdate({ user: userId }, { $set: { items: [], totalPrice: 0, totalItems: 0 } }, { session });
+            await session.commitTransaction();
+            session.endSession();
+            return res.status(201).json(new ApiResponse(201, { order }, "Order Placed via COD"));
+        }
+
+        
+        // PREVENT MULTI-CLICK RACE CONDITION
+        // Check if a payment token was created for this order within the last 1 minute
+        const oneMinuteAgo = new Date(Date.now() - 60000);
+        let existingPayment = await Payment.findOne({
+            order: order._id,
+            paymentStatus: "CREATED",
+            createdAt: { $gte: oneMinuteAgo }
+        }).session(session);
+
+        if (existingPayment) {
+            // A request just ran a split-second ago! Re-use the existing active payment intent.
+            await session.commitTransaction();
+            session.endSession();
+
+            return res.status(200).json(
+                new ApiResponse(
+                    200, 
+                    { 
+                        order, 
+                        razorpayOrder: { id: existingPayment.razorpay_order_id, amount: existingPayment.amount, currency: existingPayment.currency }, 
+                        payment: existingPayment 
+                    }, 
+                    "Payment intent pulled from active session (Double-click caught)"
+                )
+            );
+        }
+
+        // Proceed normally if no rapid duplicate exists
+        const amountInPaise = Math.round(totalPrice * 100);
+        let razorpayOrder;
+        
+        try {
+            razorpayOrder = await razorpay.orders.create({
+                amount: amountInPaise,
+                currency: "INR",
+                receipt: `order_rcpt_${order._id.toString()}`,
+            });
+        } catch (razorError) {
+            throw new ApiError(502, `Razorpay Gateway Error: ${razorError.message}`);
+        }
+
+        const [payment] = await Payment.create(
+            [{
+                user: userId,
+                order: order._id,
+                razorpay_order_id: razorpayOrder.id,
+                amount: amountInPaise,
+                currency: "INR",
+                paymentStatus: "CREATED",
+            }],
+            { session }
+        );
+
+        await session.commitTransaction();
+        session.endSession();
 
         return res.status(201).json(
-            new ApiResponse(201, order, "Order Created (COD)")
+            new ApiResponse(201, { order, razorpayOrder, payment }, "Payment window initialized")
         );
+
+    } catch (error) {
+        await session.abortTransaction();
+        session.endSession();
+        throw error;
     }
-    // ONLINE PAYMENT FLOW
-
-    const amountInPaise = Math.round(totalPrice * 100);
-
-    const options = {
-        amount: amountInPaise,
-        currency: "INR",
-        receipt: `order_rcpt_${order._id}`
-    };
-
-    const razorpayOrder = await razorpay.orders.create(options);
-
-    const payment = await Payment.create({
-        user: userId,
-        order: order._id,
-        razorpay_order_id: razorpayOrder.id,
-        amount: amountInPaise,
-        currency: "INR",
-        paymentStatus: "CREATED"
-    });
-
-    return res.status(201).json(
-        new ApiResponse(
-            201,
-            {
-                order,
-                razorpayOrder,
-                payment
-            },
-            "Order & Payment Created Successfully"
-        )
-    );
 });
 
 const getMyOrders = asyncHandler(async (req, res) => {

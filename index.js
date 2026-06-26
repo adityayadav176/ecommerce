@@ -1,20 +1,31 @@
 import "dotenv/config";
 import app from './app.js';
 import connectToMongo from './src/config/dB.js';
+import redis from "./src/config/redis.js";
+import { transporter } from "./src/config/nodemailer.config.js";
 
 const PORT = process.env.PORT || 12000
 
-connectToMongo().
-then(()=> {
-    app.listen(PORT ,() => {
-    console.log(`Server Is Running On PORT http://localhost:${PORT}`);
-    })
-})
-.catch((err)=>{
-    console.log("MonogoDb Connection Error !! ", err)
-})
+const startServer = async () => {
+    try {
+        await connectToMongo();
+        
+        await redis.ping();
 
-import { transporter } from "./src/config/nodemailer.config.js";
+        const server = app.listen(PORT, () => {
+            console.log(`Server running on http://localhost:${PORT}`);
+        });
+
+        server.on("error", (err) => {
+            console.error("Server Error:", err);
+            process.exit(1);
+        });
+
+    } catch (err) {
+        console.error("Startup Error:", err);
+        process.exit(1);
+    }
+};
 
 const checkSMTPConnection = async () => {
 
@@ -32,6 +43,7 @@ const checkSMTPConnection = async () => {
     }
 };
 
+startServer();
 checkSMTPConnection();
 
 
