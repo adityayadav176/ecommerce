@@ -1,6 +1,6 @@
 import "dotenv/config";
 import app from './app.js';
-import connectToMongo from './src/config/dB.js';
+import connectToMongo from './src/config/db.js';
 import {redis} from "./src/config/redis.js";
 import { transporter } from "./src/config/nodemailer.config.js";
 import "./src/Queue/worker.js";
