@@ -8,6 +8,7 @@ import { transporter } from "../config/nodemailer.config.js"
 import cloudinary from "cloudinary"
 import { Otp } from "../model/otp.model.js";
 import jwt from "jsonwebtoken";
+import {emailQueue} from "../Queue/queue.js"
 
 
 const generateAccessAndRefreshToken = async (userId) => {
@@ -98,12 +99,12 @@ const registerUser = asyncHandler(async (req, res) => {
     }
 
     //  Email
-    await transporter.sendMail({
-        from: process.env.SENDER_EMAIL,
-        to: email,
-        subject: `Welcome to ${process.env.APP_NAME}`,
-        text: `Hi ${fullName}, your account is successfully created.`
-    }).catch(err => console.log("Email error:", err));
+
+     await emailQueue.add("email-job", {
+        type: "REGISTER",
+        email: user.email,
+        name: user.fullName
+    });
 
     //  Response
     return res.status(201).json(
@@ -150,6 +151,12 @@ const loginUser = asyncHandler(async (req, res) => {
 
     const loggedInUser = await User.findById(user._id)
         .select("-password -refreshToken");
+
+     await emailQueue.add("email-job", {
+        type: "LOGIN_ALERT",
+        email: user.email,
+        ip: req.ip
+    });
 
     const options = {
         httpOnly: true,

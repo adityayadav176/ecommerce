@@ -1,8 +1,9 @@
 import "dotenv/config";
 import app from './app.js';
 import connectToMongo from './src/config/dB.js';
-import redis from "./src/config/redis.js";
+import {redis} from "./src/config/redis.js";
 import { transporter } from "./src/config/nodemailer.config.js";
+import "./src/Queue/worker.js";
 
 const PORT = process.env.PORT || 12000
 
