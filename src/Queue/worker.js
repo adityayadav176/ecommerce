@@ -2,7 +2,8 @@ import { Worker } from "bullmq";
 import { redis } from "../config/redis.js";
 import { sendEmail } from "../config/nodemailer.config.js";
 import { emailTemplates } from "../utils/templateEngine.js";
-console.log("🔥 Email Worker Started");
+
+console.log("Email Worker Started");
 const emailWorker = new Worker(
     "emails",
     async (job) => {
